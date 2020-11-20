@@ -24,6 +24,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Add an OpenCensus to OpenTelemetry tracing bridge. (#1305)
 - Add a parent context argument to `SpanProcessor.OnStart` to follow the specification. (#1333)
 - Add missing tests for `sdk/trace/attributes_map.go`. (#1337)
+- Add the `ReadOnlySpan` and `ReadWriteSpan` interfaces to provide better control for accessing span data. (#1360)
 
 ### Changed
 
@@ -56,6 +57,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Correct the `Span.End` method documentation in the `otel` API to state updates are not allowed on a span after it has ended. (#1310)
 - Updated span collection limits for attribute, event and link counts to 1000 (#1318)
 - Renamed `semconv.HTTPUrlKey` to `semconv.HTTPURLKey`. (#1338)
+- Rename `export.SpanData` to `export.SpanSnapshot` and use it only for exporting spans. (#1360)
+- Store the parent's full `SpanContext` rather than just its span ID in the `span` struct. (#1360)
+- Improve span duration accuracy. (#1360)
 
 ### Removed
 
@@ -65,6 +69,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - The `MockSpan` and `MockTracer` types are removed from `go.opentelemetry.io/otel/oteltest`.
    `Tracer` and `Span` from the same module should be used in their place instead. (#1306)
 - `WorkerCount` option is removed from `go.opentelemetry.io/otel/exporters/otlp`. (#1350)
+- Remove `errUninitializedSpan` as its only usage is now obsolete. (#1360)
 
 ### Fixed
 
