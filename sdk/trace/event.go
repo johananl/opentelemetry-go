@@ -15,17 +15,18 @@
 package trace // import "go.opentelemetry.io/otel/sdk/trace"
 
 import (
-	crand "crypto/rand"
-	"encoding/binary"
-	"math/rand"
+	"time" // Event is thing that happened during a Span's lifetime.
 
-	"go.opentelemetry.io/otel/sdk/trace/internal"
+	"go.opentelemetry.io/otel/label"
 )
 
-func defIDGenerator() internal.IDGenerator {
-	gen := &DefaultIDGenerator{}
-	var rngSeed int64
-	_ = binary.Read(crand.Reader, binary.LittleEndian, &rngSeed)
-	gen.RandSource = rand.New(rand.NewSource(rngSeed))
-	return gen
+type Event struct {
+	// Name is the name of this event
+	Name string
+
+	// Attributes describe the aspects of the event.
+	Attributes []label.KeyValue
+
+	// Time is the time at which this event was recorded.
+	Time time.Time
 }

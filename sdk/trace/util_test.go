@@ -15,14 +15,28 @@
 package trace_test
 
 import (
+	crand "crypto/rand"
+	"encoding/binary"
+	"math/rand"
 	"testing"
 
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/internal"
 )
 
 var testConfig = sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}
 
+// TODO: Remove?
 func basicTracerProvider(t *testing.T) *sdktrace.TracerProvider {
 	tp := sdktrace.NewTracerProvider(sdktrace.WithConfig(testConfig))
 	return tp
+}
+
+// TODO: Deduplicate.
+func defIDGenerator() internal.IDGenerator {
+	gen := &sdktrace.DefaultIDGenerator{}
+	var rngSeed int64
+	_ = binary.Read(crand.Reader, binary.LittleEndian, &rngSeed)
+	gen.RandSource = rand.New(rand.NewSource(rngSeed))
+	return gen
 }

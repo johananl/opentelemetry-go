@@ -30,6 +30,7 @@ import (
 	"go.opentelemetry.io/otel/label"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
+	export "go.opentelemetry.io/otel/sdk/export/trace"
 	"go.opentelemetry.io/otel/sdk/metric/controller/push"
 	"go.opentelemetry.io/otel/sdk/metric/processor/basic"
 	"go.opentelemetry.io/otel/sdk/metric/selector/simple"
@@ -64,7 +65,7 @@ func initProvider() func() {
 	)
 	handleErr(err, "failed to create resource")
 
-	bsp := sdktrace.NewBatchSpanProcessor(exp)
+	bsp := export.NewBatchSpanProcessor(exp)
 	tracerProvider := sdktrace.NewTracerProvider(
 		sdktrace.WithConfig(sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}),
 		sdktrace.WithResource(res),

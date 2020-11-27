@@ -30,7 +30,8 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	metricsdk "go.opentelemetry.io/otel/sdk/export/metric"
 	"go.opentelemetry.io/otel/sdk/export/metric/aggregation"
-	tracesdk "go.opentelemetry.io/otel/sdk/export/trace"
+	export "go.opentelemetry.io/otel/sdk/export/trace"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 // Exporter is an OpenTelemetry exporter. It exports both traces and metrics
@@ -52,7 +53,7 @@ type Exporter struct {
 	exportKindSelector metricsdk.ExportKindSelector
 }
 
-var _ tracesdk.SpanExporter = (*Exporter)(nil)
+var _ export.SpanExporter = (*Exporter)(nil)
 var _ metricsdk.Exporter = (*Exporter)(nil)
 
 // newConfig initializes a config struct with default values and applies
@@ -198,11 +199,11 @@ func (e *Exporter) ExportKindFor(desc *metric.Descriptor, kind aggregation.Kind)
 }
 
 // ExportSpans exports a batch of SpanSnapshot.
-func (e *Exporter) ExportSpans(ctx context.Context, ss []*tracesdk.SpanSnapshot) error {
-	return e.uploadTraces(ctx, ss)
+func (e *Exporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
+	return e.uploadTraces(ctx, spans)
 }
 
-func (e *Exporter) uploadTraces(ctx context.Context, ss []*tracesdk.SpanSnapshot) error {
+func (e *Exporter) uploadTraces(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
 	ctx, cancel := e.cc.contextWithStop(ctx)
 	defer cancel()
 
@@ -210,7 +211,7 @@ func (e *Exporter) uploadTraces(ctx context.Context, ss []*tracesdk.SpanSnapshot
 		return nil
 	}
 
-	protoSpans := transform.SpanData(ss)
+	protoSpans := transform.SpanData(spans)
 	if len(protoSpans) == 0 {
 		return nil
 	}

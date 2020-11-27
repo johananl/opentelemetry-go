@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"go.opentelemetry.io/otel/sdk/export/trace"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 var _ trace.SpanExporter = (*NoopExporter)(nil)
@@ -35,7 +36,7 @@ func NewNoopExporter() *NoopExporter {
 type NoopExporter struct{}
 
 // ExportSpans handles export of SpanSnapshots by dropping them.
-func (nsb *NoopExporter) ExportSpans(context.Context, []*trace.SpanSnapshot) error { return nil }
+func (nsb *NoopExporter) ExportSpans(context.Context, []sdktrace.ReadOnlySpan) error { return nil }
 
 // Shutdown stops the exporter by doing nothing.
 func (nsb *NoopExporter) Shutdown(context.Context) error { return nil }
@@ -49,15 +50,15 @@ func NewInMemoryExporter() *InMemoryExporter {
 
 // InMemoryExporter is an exporter that stores all received spans in-memory.
 type InMemoryExporter struct {
-	mu sync.Mutex
-	ss []*trace.SpanSnapshot
+	mu    sync.Mutex
+	spans []sdktrace.ReadOnlySpan
 }
 
 // ExportSpans handles export of SpanSnapshots by storing them in memory.
-func (imsb *InMemoryExporter) ExportSpans(_ context.Context, ss []*trace.SpanSnapshot) error {
+func (imsb *InMemoryExporter) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpan) error {
 	imsb.mu.Lock()
 	defer imsb.mu.Unlock()
-	imsb.ss = append(imsb.ss, ss...)
+	imsb.spans = append(imsb.spans, spans...)
 	return nil
 }
 
@@ -71,14 +72,14 @@ func (imsb *InMemoryExporter) Shutdown(context.Context) error {
 func (imsb *InMemoryExporter) Reset() {
 	imsb.mu.Lock()
 	defer imsb.mu.Unlock()
-	imsb.ss = nil
+	imsb.spans = nil
 }
 
 // GetSpans returns the current in-memory stored spans.
-func (imsb *InMemoryExporter) GetSpans() []*trace.SpanSnapshot {
+func (imsb *InMemoryExporter) GetSpans() []sdktrace.ReadOnlySpan {
 	imsb.mu.Lock()
 	defer imsb.mu.Unlock()
-	ret := make([]*trace.SpanSnapshot, len(imsb.ss))
-	copy(ret, imsb.ss)
+	ret := make([]sdktrace.ReadOnlySpan, len(imsb.spans))
+	copy(ret, imsb.spans)
 	return ret
 }

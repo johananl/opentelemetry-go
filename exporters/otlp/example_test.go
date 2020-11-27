@@ -24,6 +24,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp"
+	export "go.opentelemetry.io/otel/sdk/export/trace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
@@ -43,12 +44,17 @@ func Example_insecure() {
 
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithConfig(sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}),
-		sdktrace.WithBatcher(
+		// sdktrace.WithBatcher(
+		// 	exp,
+		// 	// add following two options to ensure flush
+		// 	sdktrace.WithBatchTimeout(5),
+		// 	sdktrace.WithMaxExportBatchSize(10),
+		// ),
+		sdktrace.WithSpanProcessor(export.NewBatchSpanProcessor(
 			exp,
-			// add following two options to ensure flush
-			sdktrace.WithBatchTimeout(5),
-			sdktrace.WithMaxExportBatchSize(10),
-		),
+			export.WithBatchTimeout(5),
+			export.WithMaxExportBatchSize(10),
+		)),
 	)
 	otel.SetTracerProvider(tp)
 
@@ -88,12 +94,11 @@ func Example_withTLS() {
 
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithConfig(sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}),
-		sdktrace.WithBatcher(
+		sdktrace.WithSpanProcessor(export.NewBatchSpanProcessor(
 			exp,
-			// add following two options to ensure flush
-			sdktrace.WithBatchTimeout(5),
-			sdktrace.WithMaxExportBatchSize(10),
-		),
+			export.WithBatchTimeout(5),
+			export.WithMaxExportBatchSize(10),
+		)),
 	)
 	otel.SetTracerProvider(tp)
 

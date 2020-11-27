@@ -24,6 +24,7 @@ import (
 	"go.opentelemetry.io/otel/label"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
+	export "go.opentelemetry.io/otel/sdk/export/trace"
 	"go.opentelemetry.io/otel/sdk/metric/controller/push"
 	"go.opentelemetry.io/otel/sdk/metric/processor/basic"
 	"go.opentelemetry.io/otel/sdk/metric/selector/simple"
@@ -47,7 +48,7 @@ func main() {
 		log.Fatalf("failed to initialize stdout export pipeline: %v", err)
 	}
 
-	bsp := sdktrace.NewBatchSpanProcessor(exporter)
+	bsp := export.NewBatchSpanProcessor(exporter)
 	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(bsp))
 	defer func() { _ = tp.Shutdown(context.Background()) }()
 	pusher := push.New(

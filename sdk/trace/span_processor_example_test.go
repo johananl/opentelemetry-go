@@ -12,20 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package trace
+package trace_test
 
 import (
 	"context"
 	"time"
 
+	export "go.opentelemetry.io/otel/sdk/export/trace"
 	"go.opentelemetry.io/otel/sdk/export/trace/tracetest"
+	"go.opentelemetry.io/otel/sdk/trace"
 )
 
 // DurationFilter is a SpanProcessor that filters spans that have lifetimes
 // outside of a defined range.
 type DurationFilter struct {
 	// Next is the next SpanProcessor in the chain.
-	Next SpanProcessor
+	Next trace.SpanProcessor
 
 	// Min is the duration under which spans are dropped.
 	Min time.Duration
@@ -33,12 +35,12 @@ type DurationFilter struct {
 	Max time.Duration
 }
 
-func (f DurationFilter) OnStart(parent context.Context, s ReadWriteSpan) {
+func (f DurationFilter) OnStart(parent context.Context, s trace.ReadWriteSpan) {
 	f.Next.OnStart(parent, s)
 }
 func (f DurationFilter) Shutdown(ctx context.Context) error { return f.Next.Shutdown(ctx) }
 func (f DurationFilter) ForceFlush()                        { f.Next.ForceFlush() }
-func (f DurationFilter) OnEnd(s ReadOnlySpan) {
+func (f DurationFilter) OnEnd(s trace.ReadOnlySpan) {
 	if f.Min > 0 && s.EndTime().Sub(s.StartTime()) < f.Min {
 		// Drop short lived spans.
 		return
@@ -54,19 +56,19 @@ func (f DurationFilter) OnEnd(s ReadOnlySpan) {
 // certain instrumentation.
 type InstrumentationBlacklist struct {
 	// Next is the next SpanProcessor in the chain.
-	Next SpanProcessor
+	Next trace.SpanProcessor
 
 	// Blacklist is the set of instrumentation names for which spans will be
 	// dropped.
 	Blacklist map[string]bool
 }
 
-func (f InstrumentationBlacklist) OnStart(parent context.Context, s ReadWriteSpan) {
+func (f InstrumentationBlacklist) OnStart(parent context.Context, s trace.ReadWriteSpan) {
 	f.Next.OnStart(parent, s)
 }
 func (f InstrumentationBlacklist) Shutdown(ctx context.Context) error { return f.Next.Shutdown(ctx) }
 func (f InstrumentationBlacklist) ForceFlush()                        { f.Next.ForceFlush() }
-func (f InstrumentationBlacklist) OnEnd(s ReadOnlySpan) {
+func (f InstrumentationBlacklist) OnEnd(s trace.ReadOnlySpan) {
 	if f.Blacklist != nil && f.Blacklist[s.InstrumentationLibrary().Name] {
 		// Drop spans from this instrumentation
 		return
@@ -75,7 +77,7 @@ func (f InstrumentationBlacklist) OnEnd(s ReadOnlySpan) {
 }
 
 func ExampleSpanProcessor() {
-	exportSP := NewSimpleSpanProcessor(tracetest.NewNoopExporter())
+	exportSP := export.NewSimpleSpanProcessor(tracetest.NewNoopExporter())
 
 	// Build a SpanProcessor chain to filter out all spans from the pernicious
 	// "naughty-instrumentation" dependency and only allow spans shorter than
@@ -91,6 +93,6 @@ func ExampleSpanProcessor() {
 		Max: time.Minute,
 	}
 
-	_ = NewTracerProvider(WithSpanProcessor(filter))
+	_ = trace.NewTracerProvider(trace.WithSpanProcessor(filter))
 	// ...
 }

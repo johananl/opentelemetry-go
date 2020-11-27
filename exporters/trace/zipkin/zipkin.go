@@ -117,7 +117,9 @@ func NewExportPipeline(collectorURL, serviceName string, opts ...Option) (*sdktr
 		return nil, err
 	}
 
-	tp := sdktrace.NewTracerProvider(sdktrace.WithBatcher(exp))
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithSpanProcessor(export.NewBatchSpanProcessor(exp)),
+	)
 	if exp.o.config != nil {
 		tp.ApplyConfig(*exp.o.config)
 	}
@@ -138,7 +140,7 @@ func InstallNewPipeline(collectorURL, serviceName string, opts ...Option) error 
 }
 
 // ExportSpans exports SpanSnapshots to a Zipkin receiver.
-func (e *Exporter) ExportSpans(ctx context.Context, ss []*export.SpanSnapshot) error {
+func (e *Exporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
 	e.stoppedMu.RLock()
 	stopped := e.stopped
 	e.stoppedMu.RUnlock()
@@ -147,11 +149,11 @@ func (e *Exporter) ExportSpans(ctx context.Context, ss []*export.SpanSnapshot) e
 		return nil
 	}
 
-	if len(ss) == 0 {
+	if len(spans) == 0 {
 		e.logf("no spans to export")
 		return nil
 	}
-	models := toZipkinSpanModels(ss, e.serviceName)
+	models := toZipkinSpanModels(spans, e.serviceName)
 	body, err := json.Marshal(models)
 	if err != nil {
 		return e.errf("failed to serialize zipkin models to JSON: %v", err)

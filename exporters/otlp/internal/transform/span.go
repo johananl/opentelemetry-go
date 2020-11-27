@@ -19,8 +19,8 @@ import (
 	tracepb "go.opentelemetry.io/otel/exporters/otlp/internal/opentelemetry-proto-gen/trace/v1"
 
 	"go.opentelemetry.io/otel/label"
-	export "go.opentelemetry.io/otel/sdk/export/trace"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -28,10 +28,10 @@ const (
 	maxMessageEventsPerSpan = 128
 )
 
-// SpanData transforms a slice of SpanSnapshot into a slice of OTLP
+// SpanData transforms a slice of ReadOnlySpans into a slice of OTLP
 // ResourceSpans.
-func SpanData(sdl []*export.SpanSnapshot) []*tracepb.ResourceSpans {
-	if len(sdl) == 0 {
+func SpanData(spans []sdktrace.ReadOnlySpan) []*tracepb.ResourceSpans {
+	if len(spans) == 0 {
 		return nil
 	}
 
@@ -44,25 +44,25 @@ func SpanData(sdl []*export.SpanSnapshot) []*tracepb.ResourceSpans {
 	ilsm := make(map[ilsKey]*tracepb.InstrumentationLibrarySpans)
 
 	var resources int
-	for _, sd := range sdl {
-		if sd == nil {
+	for _, s := range spans {
+		if s == nil {
 			continue
 		}
 
-		rKey := sd.Resource.Equivalent()
+		rKey := s.Resource().Equivalent()
 		iKey := ilsKey{
 			r:  rKey,
-			il: sd.InstrumentationLibrary,
+			il: s.InstrumentationLibrary(),
 		}
 		ils, iOk := ilsm[iKey]
 		if !iOk {
 			// Either the resource or instrumentation library were unknown.
 			ils = &tracepb.InstrumentationLibrarySpans{
-				InstrumentationLibrary: instrumentationLibrary(sd.InstrumentationLibrary),
+				InstrumentationLibrary: instrumentationLibrary(s.InstrumentationLibrary()),
 				Spans:                  []*tracepb.Span{},
 			}
 		}
-		ils.Spans = append(ils.Spans, span(sd))
+		ils.Spans = append(ils.Spans, span(s))
 		ilsm[iKey] = ils
 
 		rs, rOk := rsm[rKey]
@@ -70,7 +70,7 @@ func SpanData(sdl []*export.SpanSnapshot) []*tracepb.ResourceSpans {
 			resources++
 			// The resource was unknown.
 			rs = &tracepb.ResourceSpans{
-				Resource:                    Resource(sd.Resource),
+				Resource:                    Resource(s.Resource()),
 				InstrumentationLibrarySpans: []*tracepb.InstrumentationLibrarySpans{ils},
 			}
 			rsm[rKey] = rs
@@ -96,12 +96,14 @@ func SpanData(sdl []*export.SpanSnapshot) []*tracepb.ResourceSpans {
 }
 
 // span transforms a Span into an OTLP span.
-func span(sd *export.SpanSnapshot) *tracepb.Span {
-	if sd == nil {
+func span(s sdktrace.ReadOnlySpan) *tracepb.Span {
+	if s == nil {
 		return nil
 	}
 
-	s := &tracepb.Span{
+	sd := s.Snapshot()
+
+	ts := &tracepb.Span{
 		TraceId:           sd.SpanContext.TraceID[:],
 		SpanId:            sd.SpanContext.SpanID[:],
 		Status:            status(sd.StatusCode, sd.StatusMessage),
@@ -119,10 +121,10 @@ func span(sd *export.SpanSnapshot) *tracepb.Span {
 	}
 
 	if sd.ParentSpanID.IsValid() {
-		s.ParentSpanId = sd.ParentSpanID[:]
+		ts.ParentSpanId = sd.ParentSpanID[:]
 	}
 
-	return s
+	return ts
 }
 
 // status transform a span code and message into an OTLP span status.
@@ -162,7 +164,7 @@ func links(links []trace.Link) []*tracepb.Span_Link {
 }
 
 // spanEvents transforms span Events to an OTLP span events.
-func spanEvents(es []export.Event) []*tracepb.Span_Event {
+func spanEvents(es []sdktrace.Event) []*tracepb.Span_Event {
 	if len(es) == 0 {
 		return nil
 	}

@@ -25,11 +25,11 @@ import (
 )
 
 type testExporter struct {
-	spans []*export.SpanSnapshot
+	spans []sdktrace.ReadOnlySpan
 }
 
-func (t *testExporter) ExportSpans(ctx context.Context, ss []*export.SpanSnapshot) error {
-	t.spans = append(t.spans, ss...)
+func (t *testExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
+	t.spans = append(t.spans, spans...)
 	return nil
 }
 
@@ -38,23 +38,24 @@ func (t *testExporter) Shutdown(context.Context) error { return nil }
 var _ export.SpanExporter = (*testExporter)(nil)
 
 func TestNewSimpleSpanProcessor(t *testing.T) {
-	ssp := sdktrace.NewSimpleSpanProcessor(&testExporter{})
+	ssp := export.NewSimpleSpanProcessor(&testExporter{})
 	if ssp == nil {
 		t.Errorf("Error creating new instance of SimpleSpanProcessor\n")
 	}
 }
 
 func TestNewSimpleSpanProcessorWithNilExporter(t *testing.T) {
-	ssp := sdktrace.NewSimpleSpanProcessor(nil)
+	ssp := export.NewSimpleSpanProcessor(nil)
 	if ssp == nil {
 		t.Errorf("Error creating new instance of SimpleSpanProcessor with nil Exporter\n")
 	}
 }
 
 func TestSimpleSpanProcessorOnEnd(t *testing.T) {
-	tp := basicTracerProvider(t)
+	config := sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}
+	tp := sdktrace.NewTracerProvider(sdktrace.WithConfig(config))
 	te := testExporter{}
-	ssp := sdktrace.NewSimpleSpanProcessor(&te)
+	ssp := export.NewSimpleSpanProcessor(&te)
 	if ssp == nil {
 		t.Errorf("Error creating new instance of SimpleSpanProcessor with nil Exporter\n")
 	}
@@ -73,14 +74,14 @@ func TestSimpleSpanProcessorOnEnd(t *testing.T) {
 	span.End()
 
 	wantTraceID := tid
-	gotTraceID := te.spans[0].SpanContext.TraceID
+	gotTraceID := te.spans[0].SpanContext().TraceID
 	if wantTraceID != gotTraceID {
 		t.Errorf("SimplerSpanProcessor OnEnd() check: got %+v, want %+v\n", gotTraceID, wantTraceID)
 	}
 }
 
 func TestSimpleSpanProcessorShutdown(t *testing.T) {
-	ssp := sdktrace.NewSimpleSpanProcessor(&testExporter{})
+	ssp := export.NewSimpleSpanProcessor(&testExporter{})
 	if ssp == nil {
 		t.Errorf("Error creating new instance of SimpleSpanProcessor\n")
 		return

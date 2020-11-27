@@ -23,28 +23,29 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/internal"
 )
 
-type defaultIDGenerator struct {
+// TODO: Is it OK to export this type?
+type DefaultIDGenerator struct {
 	sync.Mutex
-	randSource *rand.Rand
+	RandSource *rand.Rand
 }
 
-var _ internal.IDGenerator = &defaultIDGenerator{}
+var _ internal.IDGenerator = &DefaultIDGenerator{}
 
 // NewSpanID returns a non-zero span ID from a randomly-chosen sequence.
-func (gen *defaultIDGenerator) NewSpanID() trace.SpanID {
+func (gen *DefaultIDGenerator) NewSpanID() trace.SpanID {
 	gen.Lock()
 	defer gen.Unlock()
 	sid := trace.SpanID{}
-	gen.randSource.Read(sid[:])
+	gen.RandSource.Read(sid[:])
 	return sid
 }
 
 // NewTraceID returns a non-zero trace ID from a randomly-chosen sequence.
 // mu should be held while this function is called.
-func (gen *defaultIDGenerator) NewTraceID() trace.TraceID {
+func (gen *DefaultIDGenerator) NewTraceID() trace.TraceID {
 	gen.Lock()
 	defer gen.Unlock()
 	tid := trace.TraceID{}
-	gen.randSource.Read(tid[:])
+	gen.RandSource.Read(tid[:])
 	return tid
 }

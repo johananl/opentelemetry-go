@@ -21,25 +21,24 @@ import (
 	"testing"
 	"time"
 
-	"go.opentelemetry.io/otel/trace"
-
-	export "go.opentelemetry.io/otel/sdk/export/trace"
+	"go.opentelemetry.io/otel/sdk/export/trace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 type testBatchExporter struct {
 	mu         sync.Mutex
-	spans      []*export.SpanSnapshot
+	spans      []sdktrace.ReadOnlySpan
 	sizes      []int
 	batchCount int
 }
 
-func (t *testBatchExporter) ExportSpans(ctx context.Context, ss []*export.SpanSnapshot) error {
+func (t *testBatchExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	t.spans = append(t.spans, ss...)
-	t.sizes = append(t.sizes, len(ss))
+	t.spans = append(t.spans, spans...)
+	t.sizes = append(t.sizes, len(spans))
 	t.batchCount++
 	return nil
 }
@@ -58,11 +57,12 @@ func (t *testBatchExporter) getBatchCount() int {
 	return t.batchCount
 }
 
-var _ export.SpanExporter = (*testBatchExporter)(nil)
+var _ trace.SpanExporter = (*testBatchExporter)(nil)
 
 func TestNewBatchSpanProcessorWithNilExporter(t *testing.T) {
-	tp := basicTracerProvider(t)
-	bsp := sdktrace.NewBatchSpanProcessor(nil)
+	config := sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}
+	tp := sdktrace.NewTracerProvider(sdktrace.WithConfig(config))
+	bsp := trace.NewBatchSpanProcessor(nil)
 	tp.RegisterSpanProcessor(bsp)
 	tr := tp.Tracer("NilExporter")
 
@@ -81,7 +81,7 @@ func TestNewBatchSpanProcessorWithNilExporter(t *testing.T) {
 
 type testOption struct {
 	name           string
-	o              []sdktrace.BatchSpanProcessorOption
+	o              []trace.BatchSpanProcessorOption
 	wantNumSpans   int
 	wantBatchCount int
 	genNumSpans    int
@@ -99,8 +99,8 @@ func TestNewBatchSpanProcessorWithOptions(t *testing.T) {
 		},
 		{
 			name: "non-default BatchTimeout",
-			o: []sdktrace.BatchSpanProcessorOption{
-				sdktrace.WithBatchTimeout(schDelay),
+			o: []trace.BatchSpanProcessorOption{
+				trace.WithBatchTimeout(schDelay),
 			},
 			wantNumSpans:   2053,
 			wantBatchCount: 4,
@@ -108,9 +108,9 @@ func TestNewBatchSpanProcessorWithOptions(t *testing.T) {
 		},
 		{
 			name: "non-default MaxQueueSize and BatchTimeout",
-			o: []sdktrace.BatchSpanProcessorOption{
-				sdktrace.WithBatchTimeout(schDelay),
-				sdktrace.WithMaxQueueSize(200),
+			o: []trace.BatchSpanProcessorOption{
+				trace.WithBatchTimeout(schDelay),
+				trace.WithMaxQueueSize(200),
 			},
 			wantNumSpans:   205,
 			wantBatchCount: 1,
@@ -118,10 +118,10 @@ func TestNewBatchSpanProcessorWithOptions(t *testing.T) {
 		},
 		{
 			name: "non-default MaxQueueSize, BatchTimeout and MaxExportBatchSize",
-			o: []sdktrace.BatchSpanProcessorOption{
-				sdktrace.WithBatchTimeout(schDelay),
-				sdktrace.WithMaxQueueSize(205),
-				sdktrace.WithMaxExportBatchSize(20),
+			o: []trace.BatchSpanProcessorOption{
+				trace.WithBatchTimeout(schDelay),
+				trace.WithMaxQueueSize(205),
+				trace.WithMaxExportBatchSize(20),
 			},
 			wantNumSpans:   210,
 			wantBatchCount: 11,
@@ -129,10 +129,10 @@ func TestNewBatchSpanProcessorWithOptions(t *testing.T) {
 		},
 		{
 			name: "blocking option",
-			o: []sdktrace.BatchSpanProcessorOption{
-				sdktrace.WithBatchTimeout(schDelay),
-				sdktrace.WithMaxQueueSize(200),
-				sdktrace.WithMaxExportBatchSize(20),
+			o: []trace.BatchSpanProcessorOption{
+				trace.WithBatchTimeout(schDelay),
+				trace.WithMaxQueueSize(200),
+				trace.WithMaxExportBatchSize(20),
 			},
 			wantNumSpans:   205,
 			wantBatchCount: 11,
@@ -140,9 +140,9 @@ func TestNewBatchSpanProcessorWithOptions(t *testing.T) {
 		},
 		{
 			name: "parallel span generation",
-			o: []sdktrace.BatchSpanProcessorOption{
-				sdktrace.WithBatchTimeout(schDelay),
-				sdktrace.WithMaxQueueSize(200),
+			o: []trace.BatchSpanProcessorOption{
+				trace.WithBatchTimeout(schDelay),
+				trace.WithMaxQueueSize(200),
 			},
 			wantNumSpans:   205,
 			wantBatchCount: 1,
@@ -151,9 +151,9 @@ func TestNewBatchSpanProcessorWithOptions(t *testing.T) {
 		},
 		{
 			name: "parallel span blocking",
-			o: []sdktrace.BatchSpanProcessorOption{
-				sdktrace.WithBatchTimeout(schDelay),
-				sdktrace.WithMaxExportBatchSize(200),
+			o: []trace.BatchSpanProcessorOption{
+				trace.WithBatchTimeout(schDelay),
+				trace.WithMaxExportBatchSize(200),
 			},
 			wantNumSpans:   2000,
 			wantBatchCount: 10,
@@ -164,7 +164,8 @@ func TestNewBatchSpanProcessorWithOptions(t *testing.T) {
 	for _, option := range options {
 		t.Run(option.name, func(t *testing.T) {
 			te := testBatchExporter{}
-			tp := basicTracerProvider(t)
+			config := sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}
+			tp := sdktrace.NewTracerProvider(sdktrace.WithConfig(config))
 			ssp := createAndRegisterBatchSP(option, &te)
 			if ssp == nil {
 				t.Fatalf("%s: Error creating new instance of BatchSpanProcessor\n", option.name)
@@ -192,21 +193,21 @@ func TestNewBatchSpanProcessorWithOptions(t *testing.T) {
 	}
 }
 
-func createAndRegisterBatchSP(option testOption, te *testBatchExporter) *sdktrace.BatchSpanProcessor {
+func createAndRegisterBatchSP(option testOption, te *testBatchExporter) *trace.BatchSpanProcessor {
 	// Always use blocking queue to avoid flaky tests.
-	options := append(option.o, sdktrace.WithBlocking())
-	return sdktrace.NewBatchSpanProcessor(te, options...)
+	options := append(option.o, trace.WithBlocking())
+	return trace.NewBatchSpanProcessor(te, options...)
 }
 
-func generateSpan(t *testing.T, parallel bool, tr trace.Tracer, option testOption) {
+func generateSpan(t *testing.T, parallel bool, tr oteltrace.Tracer, option testOption) {
 	sc := getSpanContext()
 
 	wg := &sync.WaitGroup{}
 	for i := 0; i < option.genNumSpans; i++ {
 		binary.BigEndian.PutUint64(sc.TraceID[0:8], uint64(i+1))
 		wg.Add(1)
-		f := func(sc trace.SpanContext) {
-			ctx := trace.ContextWithRemoteSpanContext(context.Background(), sc)
+		f := func(sc oteltrace.SpanContext) {
+			ctx := oteltrace.ContextWithRemoteSpanContext(context.Background(), sc)
 			_, span := tr.Start(ctx, option.name)
 			span.End()
 			wg.Done()
@@ -220,10 +221,10 @@ func generateSpan(t *testing.T, parallel bool, tr trace.Tracer, option testOptio
 	wg.Wait()
 }
 
-func getSpanContext() trace.SpanContext {
-	tid, _ := trace.TraceIDFromHex("01020304050607080102040810203040")
-	sid, _ := trace.SpanIDFromHex("0102040810203040")
-	return trace.SpanContext{
+func getSpanContext() oteltrace.SpanContext {
+	tid, _ := oteltrace.TraceIDFromHex("01020304050607080102040810203040")
+	sid, _ := oteltrace.SpanIDFromHex("0102040810203040")
+	return oteltrace.SpanContext{
 		TraceID:    tid,
 		SpanID:     sid,
 		TraceFlags: 0x1,
@@ -231,7 +232,7 @@ func getSpanContext() trace.SpanContext {
 }
 
 func TestBatchSpanProcessorShutdown(t *testing.T) {
-	bsp := sdktrace.NewBatchSpanProcessor(&testBatchExporter{})
+	bsp := trace.NewBatchSpanProcessor(&testBatchExporter{})
 
 	err := bsp.Shutdown(context.Background())
 	if err != nil {

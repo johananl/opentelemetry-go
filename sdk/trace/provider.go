@@ -22,7 +22,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 
-	export "go.opentelemetry.io/otel/sdk/export/trace"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
 	"go.opentelemetry.io/otel/sdk/resource"
 )
@@ -198,17 +197,22 @@ func (p *TracerProvider) Shutdown(ctx context.Context) error {
 	return nil
 }
 
+// TODO: Can't call NewSimpleSpanProcessor() or NewBatchSpanProcessor() from
+// here because doing so requires that we depend on sdk/export/trace which
+// creates an import cycle. Probably better to let the caller instantiate the
+// SpanProcessor.
+
 // WithSyncer registers the exporter with the TracerProvider using a
 // SimpleSpanProcessor.
-func WithSyncer(e export.SpanExporter) TracerProviderOption {
-	return WithSpanProcessor(NewSimpleSpanProcessor(e))
-}
+// func WithSyncer(e export.SpanExporter) TracerProviderOption {
+// 	return WithSpanProcessor(NewSimpleSpanProcessor(e))
+// }
 
 // WithBatcher registers the exporter with the TracerProvider using a
 // BatchSpanProcessor configured with the passed opts.
-func WithBatcher(e export.SpanExporter, opts ...BatchSpanProcessorOption) TracerProviderOption {
-	return WithSpanProcessor(NewBatchSpanProcessor(e, opts...))
-}
+// func WithBatcher(e export.SpanExporter, opts ...BatchSpanProcessorOption) TracerProviderOption {
+// 	return WithSpanProcessor(NewBatchSpanProcessor(e, opts...))
+// }
 
 // WithSpanProcessor registers the SpanProcessor with a TracerProvider.
 func WithSpanProcessor(sp SpanProcessor) TracerProviderOption {

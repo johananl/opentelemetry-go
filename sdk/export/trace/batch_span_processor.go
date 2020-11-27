@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package trace // import "go.opentelemetry.io/otel/sdk/trace"
+package trace // import "go.opentelemetry.io/otel/sdk/export/trace"
 
 import (
 	"context"
@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel"
-	export "go.opentelemetry.io/otel/sdk/export/trace"
+	"go.opentelemetry.io/otel/sdk/trace"
 )
 
 const (
@@ -58,15 +58,15 @@ type BatchSpanProcessorOptions struct {
 }
 
 // BatchSpanProcessor is a SpanProcessor that batches asynchronously-received
-// SpanSnapshots and sends them to a trace.Exporter when complete.
+// ReadOnlySpans and sends them to a trace.Exporter when complete.
 type BatchSpanProcessor struct {
-	e export.SpanExporter
+	e SpanExporter
 	o BatchSpanProcessorOptions
 
-	queue   chan *export.SpanSnapshot
+	queue   chan trace.ReadOnlySpan
 	dropped uint32
 
-	batch      []*export.SpanSnapshot
+	batch      []trace.ReadOnlySpan
 	batchMutex sync.Mutex
 	timer      *time.Timer
 	stopWait   sync.WaitGroup
@@ -74,7 +74,7 @@ type BatchSpanProcessor struct {
 	stopCh     chan struct{}
 }
 
-var _ SpanProcessor = (*BatchSpanProcessor)(nil)
+var _ trace.SpanProcessor = (*BatchSpanProcessor)(nil)
 
 // NewBatchSpanProcessor creates a new BatchSpanProcessor that will send
 // SpanSnapshot batches to the exporters with the supplied options.
@@ -83,7 +83,7 @@ var _ SpanProcessor = (*BatchSpanProcessor)(nil)
 // the RegisterSpanProcessor method for it to process spans.
 //
 // If the exporter is nil, the span processor will preform no action.
-func NewBatchSpanProcessor(exporter export.SpanExporter, options ...BatchSpanProcessorOption) *BatchSpanProcessor {
+func NewBatchSpanProcessor(exporter SpanExporter, options ...BatchSpanProcessorOption) *BatchSpanProcessor {
 	o := BatchSpanProcessorOptions{
 		BatchTimeout:       DefaultBatchTimeout,
 		MaxQueueSize:       DefaultMaxQueueSize,
@@ -95,9 +95,9 @@ func NewBatchSpanProcessor(exporter export.SpanExporter, options ...BatchSpanPro
 	bsp := &BatchSpanProcessor{
 		e:      exporter,
 		o:      o,
-		batch:  make([]*export.SpanSnapshot, 0, o.MaxExportBatchSize),
+		batch:  make([]trace.ReadOnlySpan, 0, o.MaxExportBatchSize),
 		timer:  time.NewTimer(o.BatchTimeout),
-		queue:  make(chan *export.SpanSnapshot, o.MaxQueueSize),
+		queue:  make(chan trace.ReadOnlySpan, o.MaxQueueSize),
 		stopCh: make(chan struct{}),
 	}
 
@@ -112,15 +112,15 @@ func NewBatchSpanProcessor(exporter export.SpanExporter, options ...BatchSpanPro
 }
 
 // OnStart method does nothing.
-func (bsp *BatchSpanProcessor) OnStart(parent context.Context, s ReadWriteSpan) {}
+func (bsp *BatchSpanProcessor) OnStart(parent context.Context, s trace.ReadWriteSpan) {}
 
 // OnEnd method enqueues a ReadOnlySpan for later processing.
-func (bsp *BatchSpanProcessor) OnEnd(s ReadOnlySpan) {
+func (bsp *BatchSpanProcessor) OnEnd(s trace.ReadOnlySpan) {
 	// Do not enqueue spans if we are just going to drop them.
 	if bsp.e == nil {
 		return
 	}
-	bsp.enqueue(s.Snapshot())
+	bsp.enqueue(s)
 }
 
 // Shutdown flushes the queue and waits until all spans are processed.
@@ -240,8 +240,8 @@ func (bsp *BatchSpanProcessor) drainQueue() {
 	}
 }
 
-func (bsp *BatchSpanProcessor) enqueue(sd *export.SpanSnapshot) {
-	if !sd.SpanContext.IsSampled() {
+func (bsp *BatchSpanProcessor) enqueue(s trace.ReadOnlySpan) {
+	if !s.SpanContext().IsSampled() {
 		return
 	}
 
@@ -267,12 +267,12 @@ func (bsp *BatchSpanProcessor) enqueue(sd *export.SpanSnapshot) {
 	}
 
 	if bsp.o.BlockOnQueueFull {
-		bsp.queue <- sd
+		bsp.queue <- s
 		return
 	}
 
 	select {
-	case bsp.queue <- sd:
+	case bsp.queue <- s:
 	default:
 		atomic.AddUint32(&bsp.dropped, 1)
 	}

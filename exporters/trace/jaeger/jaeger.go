@@ -166,7 +166,8 @@ func NewExportPipeline(endpointOption EndpointOption, opts ...Option) (trace.Tra
 		return nil, nil, err
 	}
 
-	pOpts := []sdktrace.TracerProviderOption{sdktrace.WithSyncer(exporter)}
+	sp := export.NewSimpleSpanProcessor(exporter)
+	pOpts := []sdktrace.TracerProviderOption{sdktrace.WithSpanProcessor(sp)}
 	if exporter.o.Config != nil {
 		pOpts = append(pOpts, sdktrace.WithConfig(*exporter.o.Config))
 	}
@@ -210,8 +211,8 @@ type Exporter struct {
 
 var _ export.SpanExporter = (*Exporter)(nil)
 
-// ExportSpans exports SpanSnapshots to Jaeger.
-func (e *Exporter) ExportSpans(ctx context.Context, ss []*export.SpanSnapshot) error {
+// ExportSpans exports ReadOnlySpans to Jaeger.
+func (e *Exporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
 	e.stoppedMu.RLock()
 	stopped := e.stopped
 	e.stoppedMu.RUnlock()
@@ -219,11 +220,11 @@ func (e *Exporter) ExportSpans(ctx context.Context, ss []*export.SpanSnapshot) e
 		return nil
 	}
 
-	for _, span := range ss {
+	for _, span := range spans {
 		// TODO(jbd): Handle oversized bundlers.
-		err := e.bundler.Add(spanSnapshotToThrift(span), 1)
+		err := e.bundler.Add(spanToThrift(span), 1)
 		if err != nil {
-			return fmt.Errorf("failed to bundle %q: %w", span.Name, err)
+			return fmt.Errorf("failed to bundle %q: %w", span.Name(), err)
 		}
 	}
 	return nil
@@ -260,7 +261,9 @@ func (e *Exporter) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func spanSnapshotToThrift(ss *export.SpanSnapshot) *gen.Span {
+func spanToThrift(s sdktrace.ReadOnlySpan) *gen.Span {
+	ss := s.Snapshot()
+
 	tags := make([]*gen.Tag, 0, len(ss.Attributes))
 	for _, kv := range ss.Attributes {
 		tag := keyValueToTag(kv)

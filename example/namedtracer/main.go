@@ -23,6 +23,7 @@ import (
 	"go.opentelemetry.io/otel/example/namedtracer/foo"
 	"go.opentelemetry.io/otel/exporters/stdout"
 	"go.opentelemetry.io/otel/label"
+	export "go.opentelemetry.io/otel/sdk/export/trace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -43,7 +44,7 @@ func initTracer() {
 		log.Panicf("failed to initialize stdout exporter %v\n", err)
 		return
 	}
-	bsp := sdktrace.NewBatchSpanProcessor(exp)
+	bsp := export.NewBatchSpanProcessor(exp)
 	tp = sdktrace.NewTracerProvider(
 		sdktrace.WithConfig(
 			sdktrace.Config{

@@ -23,6 +23,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/bridge/opencensus"
 	"go.opentelemetry.io/otel/exporters/stdout"
+	export "go.opentelemetry.io/otel/sdk/export/trace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
@@ -37,7 +38,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(otExporter))
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(export.NewSimpleSpanProcessor(otExporter)))
 	otel.SetTracerProvider(tp)
 
 	log.Println("Installing the OpenCensus bridge to make OpenCensus libraries write spans using OpenTelemetry.")
