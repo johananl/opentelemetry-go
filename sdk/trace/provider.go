@@ -31,16 +31,21 @@ const (
 	defaultTracerName = "go.opentelemetry.io/otel/sdk/tracer"
 )
 
-// TODO (MrAlias): unify this API option design:
-// https://github.com/open-telemetry/opentelemetry-go/issues/536
-
 // TracerProviderConfig
 type TracerProviderConfig struct {
 	processors []SpanProcessor
 	config     Config
 }
 
-type TracerProviderOption func(*TracerProviderConfig)
+type TracerProviderOption interface {
+	Apply(*TracerProviderConfig)
+}
+
+type TracerProviderOptionFunc func(*TracerProviderConfig)
+
+func (o TracerProviderOptionFunc) Apply(c *TracerProviderConfig) {
+	o(c)
+}
 
 type TracerProvider struct {
 	mu             sync.Mutex
@@ -58,7 +63,7 @@ func NewTracerProvider(opts ...TracerProviderOption) *TracerProvider {
 	o := &TracerProviderConfig{}
 
 	for _, opt := range opts {
-		opt(o)
+		opt.Apply(o)
 	}
 
 	tp := &TracerProvider{
@@ -212,22 +217,22 @@ func WithBatcher(e export.SpanExporter, opts ...BatchSpanProcessorOption) Tracer
 
 // WithSpanProcessor registers the SpanProcessor with a TracerProvider.
 func WithSpanProcessor(sp SpanProcessor) TracerProviderOption {
-	return func(opts *TracerProviderConfig) {
+	return TracerProviderOptionFunc(func(opts *TracerProviderConfig) {
 		opts.processors = append(opts.processors, sp)
-	}
+	})
 }
 
 // WithConfig option sets the configuration to provider.
 func WithConfig(config Config) TracerProviderOption {
-	return func(opts *TracerProviderConfig) {
+	return TracerProviderOptionFunc(func(opts *TracerProviderConfig) {
 		opts.config = config
-	}
+	})
 }
 
 // WithResource option attaches a resource to the provider.
 // The resource is added to the span when it is started.
 func WithResource(r *resource.Resource) TracerProviderOption {
-	return func(opts *TracerProviderConfig) {
+	return TracerProviderOptionFunc(func(opts *TracerProviderConfig) {
 		opts.config.Resource = r
-	}
+	})
 }
