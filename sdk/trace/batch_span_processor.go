@@ -31,9 +31,7 @@ const (
 	DefaultMaxExportBatchSize = 512
 )
 
-type BatchSpanProcessorOption func(o *BatchSpanProcessorOptions)
-
-type BatchSpanProcessorOptions struct {
+type BatchSpanProcessorConfig struct {
 	// MaxQueueSize is the maximum queue size to buffer spans for delayed processing. If the
 	// queue gets full it drops the spans. Use BlockOnQueueFull to change this behavior.
 	// The default value of MaxQueueSize is 2048.
@@ -57,11 +55,21 @@ type BatchSpanProcessorOptions struct {
 	BlockOnQueueFull bool
 }
 
+type BatchSpanProcessorOption interface {
+	Apply(*BatchSpanProcessorConfig)
+}
+
+type BatchSpanProcessorOptionFunc func(o *BatchSpanProcessorConfig)
+
+func (o BatchSpanProcessorOptionFunc) Apply(c *BatchSpanProcessorConfig) {
+	o(c)
+}
+
 // BatchSpanProcessor is a SpanProcessor that batches asynchronously received
 // SpanData and sends it to a trace.Exporter when complete.
 type BatchSpanProcessor struct {
 	e export.SpanExporter
-	o BatchSpanProcessorOptions
+	o BatchSpanProcessorConfig
 
 	queue   chan *export.SpanData
 	dropped uint32
@@ -84,13 +92,13 @@ var _ SpanProcessor = (*BatchSpanProcessor)(nil)
 //
 // If the exporter is nil, the span processor will preform no action.
 func NewBatchSpanProcessor(exporter export.SpanExporter, options ...BatchSpanProcessorOption) *BatchSpanProcessor {
-	o := BatchSpanProcessorOptions{
+	o := BatchSpanProcessorConfig{
 		BatchTimeout:       DefaultBatchTimeout,
 		MaxQueueSize:       DefaultMaxQueueSize,
 		MaxExportBatchSize: DefaultMaxExportBatchSize,
 	}
 	for _, opt := range options {
-		opt(&o)
+		opt.Apply(&o)
 	}
 	bsp := &BatchSpanProcessor{
 		e:      exporter,
@@ -150,27 +158,27 @@ func (bsp *BatchSpanProcessor) ForceFlush() {
 }
 
 func WithMaxQueueSize(size int) BatchSpanProcessorOption {
-	return func(o *BatchSpanProcessorOptions) {
+	return BatchSpanProcessorOptionFunc(func(o *BatchSpanProcessorConfig) {
 		o.MaxQueueSize = size
-	}
+	})
 }
 
 func WithMaxExportBatchSize(size int) BatchSpanProcessorOption {
-	return func(o *BatchSpanProcessorOptions) {
+	return BatchSpanProcessorOptionFunc(func(o *BatchSpanProcessorConfig) {
 		o.MaxExportBatchSize = size
-	}
+	})
 }
 
 func WithBatchTimeout(delay time.Duration) BatchSpanProcessorOption {
-	return func(o *BatchSpanProcessorOptions) {
+	return BatchSpanProcessorOptionFunc(func(o *BatchSpanProcessorConfig) {
 		o.BatchTimeout = delay
-	}
+	})
 }
 
 func WithBlocking() BatchSpanProcessorOption {
-	return func(o *BatchSpanProcessorOptions) {
+	return BatchSpanProcessorOptionFunc(func(o *BatchSpanProcessorConfig) {
 		o.BlockOnQueueFull = true
-	}
+	})
 }
 
 // exportSpans is a subroutine of processing and draining the queue.
