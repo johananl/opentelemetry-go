@@ -12,18 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// tracetest is a testing helper package for the SDK. User can configure no-op or in-memory exporters to verify
-// different SDK behaviors or custom instrumentation.
-package tracetest // import "go.opentelemetry.io/otel/sdk/export/trace/tracetest"
+package trace
 
 import (
 	"context"
 	"sync"
-
-	"go.opentelemetry.io/otel/sdk/export/trace"
 )
 
-var _ trace.SpanExporter = (*NoopExporter)(nil)
+// Testing helpers for the SDK. User can configure no-op or in-memory exporters to verify different
+// SDK behaviors or custom instrumentation.
+
+var _ SpanExporter = (*NoopExporter)(nil)
 
 // NewNoopExporter returns a new no-op exporter.
 func NewNoopExporter() *NoopExporter {
@@ -35,12 +34,12 @@ func NewNoopExporter() *NoopExporter {
 type NoopExporter struct{}
 
 // ExportSpans handles export of SpanSnapshots by dropping them.
-func (nsb *NoopExporter) ExportSpans(context.Context, []*trace.SpanSnapshot) error { return nil }
+func (nsb *NoopExporter) ExportSpans(context.Context, []*SpanSnapshot) error { return nil }
 
 // Shutdown stops the exporter by doing nothing.
 func (nsb *NoopExporter) Shutdown(context.Context) error { return nil }
 
-var _ trace.SpanExporter = (*InMemoryExporter)(nil)
+var _ SpanExporter = (*InMemoryExporter)(nil)
 
 // NewInMemoryExporter returns a new InMemoryExporter.
 func NewInMemoryExporter() *InMemoryExporter {
@@ -50,11 +49,11 @@ func NewInMemoryExporter() *InMemoryExporter {
 // InMemoryExporter is an exporter that stores all received spans in-memory.
 type InMemoryExporter struct {
 	mu sync.Mutex
-	ss []*trace.SpanSnapshot
+	ss []*SpanSnapshot
 }
 
 // ExportSpans handles export of SpanSnapshots by storing them in memory.
-func (imsb *InMemoryExporter) ExportSpans(_ context.Context, ss []*trace.SpanSnapshot) error {
+func (imsb *InMemoryExporter) ExportSpans(_ context.Context, ss []*SpanSnapshot) error {
 	imsb.mu.Lock()
 	defer imsb.mu.Unlock()
 	imsb.ss = append(imsb.ss, ss...)
@@ -75,10 +74,10 @@ func (imsb *InMemoryExporter) Reset() {
 }
 
 // GetSpans returns the current in-memory stored spans.
-func (imsb *InMemoryExporter) GetSpans() []*trace.SpanSnapshot {
+func (imsb *InMemoryExporter) GetSpans() []*SpanSnapshot {
 	imsb.mu.Lock()
 	defer imsb.mu.Unlock()
-	ret := make([]*trace.SpanSnapshot, len(imsb.ss))
+	ret := make([]*SpanSnapshot, len(imsb.ss))
 	copy(ret, imsb.ss)
 	return ret
 }

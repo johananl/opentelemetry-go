@@ -30,9 +30,9 @@ import (
 	"go.opentelemetry.io/otel/label"
 	"go.opentelemetry.io/otel/trace"
 
-	tracesdk "go.opentelemetry.io/otel/sdk/export/trace"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
 	"go.opentelemetry.io/otel/sdk/resource"
+	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 )
 
 type traceServiceClientStub struct {

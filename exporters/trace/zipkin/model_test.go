@@ -26,13 +26,13 @@ import (
 
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/label"
-	export "go.opentelemetry.io/otel/sdk/export/trace"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 )
 
 func TestModelConversion(t *testing.T) {
-	inputBatch := []*export.SpanSnapshot{
+	inputBatch := []*sdktrace.SpanSnapshot{
 		// typical span data
 		{
 			SpanContext: trace.SpanContext{
@@ -48,7 +48,7 @@ func TestModelConversion(t *testing.T) {
 				label.Uint64("attr1", 42),
 				label.String("attr2", "bar"),
 			},
-			MessageEvents: []export.Event{
+			MessageEvents: []sdktrace.Event{
 				{
 					Time: time.Date(2020, time.March, 11, 19, 24, 30, 0, time.UTC),
 					Name: "ev1",
@@ -81,7 +81,7 @@ func TestModelConversion(t *testing.T) {
 				label.Uint64("attr1", 42),
 				label.String("attr2", "bar"),
 			},
-			MessageEvents: []export.Event{
+			MessageEvents: []sdktrace.Event{
 				{
 					Time: time.Date(2020, time.March, 11, 19, 24, 30, 0, time.UTC),
 					Name: "ev1",
@@ -113,7 +113,7 @@ func TestModelConversion(t *testing.T) {
 				label.Uint64("attr1", 42),
 				label.String("attr2", "bar"),
 			},
-			MessageEvents: []export.Event{
+			MessageEvents: []sdktrace.Event{
 				{
 					Time: time.Date(2020, time.March, 11, 19, 24, 30, 0, time.UTC),
 					Name: "ev1",
@@ -145,7 +145,7 @@ func TestModelConversion(t *testing.T) {
 				label.Uint64("attr1", 42),
 				label.String("attr2", "bar"),
 			},
-			MessageEvents: []export.Event{
+			MessageEvents: []sdktrace.Event{
 				{
 					Time: time.Date(2020, time.March, 11, 19, 24, 30, 0, time.UTC),
 					Name: "ev1",
@@ -177,7 +177,7 @@ func TestModelConversion(t *testing.T) {
 				label.Uint64("attr1", 42),
 				label.String("attr2", "bar"),
 			},
-			MessageEvents: []export.Event{
+			MessageEvents: []sdktrace.Event{
 				{
 					Time: time.Date(2020, time.March, 11, 19, 24, 30, 0, time.UTC),
 					Name: "ev1",
@@ -209,7 +209,7 @@ func TestModelConversion(t *testing.T) {
 				label.Uint64("attr1", 42),
 				label.String("attr2", "bar"),
 			},
-			MessageEvents: []export.Event{
+			MessageEvents: []sdktrace.Event{
 				{
 					Time: time.Date(2020, time.March, 11, 19, 24, 30, 0, time.UTC),
 					Name: "ev1",
@@ -241,7 +241,7 @@ func TestModelConversion(t *testing.T) {
 				label.Uint64("attr1", 42),
 				label.String("attr2", "bar"),
 			},
-			MessageEvents: []export.Event{
+			MessageEvents: []sdktrace.Event{
 				{
 					Time: time.Date(2020, time.March, 11, 19, 24, 30, 0, time.UTC),
 					Name: "ev1",
@@ -291,7 +291,7 @@ func TestModelConversion(t *testing.T) {
 			Attributes: []label.KeyValue{
 				label.String("error", "false"),
 			},
-			MessageEvents: []export.Event{
+			MessageEvents: []sdktrace.Event{
 				{
 					Time: time.Date(2020, time.March, 11, 19, 24, 30, 0, time.UTC),
 					Name: "ev1",
@@ -671,12 +671,12 @@ func Test_toZipkinTags(t *testing.T) {
 
 	tests := []struct {
 		name string
-		data *export.SpanSnapshot
+		data *sdktrace.SpanSnapshot
 		want map[string]string
 	}{
 		{
 			name: "attributes",
-			data: &export.SpanSnapshot{
+			data: &sdktrace.SpanSnapshot{
 				Attributes: []label.KeyValue{
 					label.String("key", keyValue),
 					label.Float64("double", doubleValue),
@@ -695,7 +695,7 @@ func Test_toZipkinTags(t *testing.T) {
 		},
 		{
 			name: "no attributes",
-			data: &export.SpanSnapshot{},
+			data: &sdktrace.SpanSnapshot{},
 			want: map[string]string{
 				"otel.status_code":        codes.Unset.String(),
 				"otel.status_description": "",
@@ -703,7 +703,7 @@ func Test_toZipkinTags(t *testing.T) {
 		},
 		{
 			name: "omit-noerror",
-			data: &export.SpanSnapshot{
+			data: &sdktrace.SpanSnapshot{
 				Attributes: []label.KeyValue{
 					label.Bool("error", false),
 				},
@@ -715,7 +715,7 @@ func Test_toZipkinTags(t *testing.T) {
 		},
 		{
 			name: "statusCode",
-			data: &export.SpanSnapshot{
+			data: &sdktrace.SpanSnapshot{
 				Attributes: []label.KeyValue{
 					label.String("key", keyValue),
 					label.Bool("error", true),
@@ -732,7 +732,7 @@ func Test_toZipkinTags(t *testing.T) {
 		},
 		{
 			name: "instrLib-empty",
-			data: &export.SpanSnapshot{
+			data: &sdktrace.SpanSnapshot{
 				InstrumentationLibrary: instrumentation.Library{},
 			},
 			want: map[string]string{
@@ -742,7 +742,7 @@ func Test_toZipkinTags(t *testing.T) {
 		},
 		{
 			name: "instrLib-noversion",
-			data: &export.SpanSnapshot{
+			data: &sdktrace.SpanSnapshot{
 				Attributes: []label.KeyValue{},
 				InstrumentationLibrary: instrumentation.Library{
 					Name: instrLibName,
@@ -756,7 +756,7 @@ func Test_toZipkinTags(t *testing.T) {
 		},
 		{
 			name: "instrLib-with-version",
-			data: &export.SpanSnapshot{
+			data: &sdktrace.SpanSnapshot{
 				Attributes: []label.KeyValue{},
 				InstrumentationLibrary: instrumentation.Library{
 					Name:    instrLibName,

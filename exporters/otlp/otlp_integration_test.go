@@ -31,7 +31,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/number"
 	metricsdk "go.opentelemetry.io/otel/sdk/export/metric"
-	exporttrace "go.opentelemetry.io/otel/sdk/export/trace"
 	"go.opentelemetry.io/otel/sdk/metric/controller/push"
 	processor "go.opentelemetry.io/otel/sdk/metric/processor/basic"
 	"go.opentelemetry.io/otel/sdk/metric/selector/simple"
@@ -367,7 +366,7 @@ func TestNewExporter_collectorConnectionDiesThenReconnects(t *testing.T) {
 		// No endpoint up.
 		require.Error(
 			t,
-			exp.ExportSpans(ctx, []*exporttrace.SpanSnapshot{{Name: "in the midst"}}),
+			exp.ExportSpans(ctx, []*sdktrace.SpanSnapshot{{Name: "in the midst"}}),
 			"transport: Error while dialing dial tcp %s: connect: connection refused",
 			mc.address,
 		)
@@ -381,7 +380,7 @@ func TestNewExporter_collectorConnectionDiesThenReconnects(t *testing.T) {
 
 		n := 10
 		for i := 0; i < n; i++ {
-			require.NoError(t, exp.ExportSpans(ctx, []*exporttrace.SpanSnapshot{{Name: "Resurrected"}}))
+			require.NoError(t, exp.ExportSpans(ctx, []*sdktrace.SpanSnapshot{{Name: "Resurrected"}}))
 		}
 
 		nmaSpans := nmc.getSpans()
@@ -461,7 +460,7 @@ func TestNewExporter_withHeaders(t *testing.T) {
 		otlp.WithAddress(mc.address),
 		otlp.WithHeaders(map[string]string{"header1": "value1"}),
 	)
-	require.NoError(t, exp.ExportSpans(ctx, []*exporttrace.SpanSnapshot{{Name: "in the midst"}}))
+	require.NoError(t, exp.ExportSpans(ctx, []*sdktrace.SpanSnapshot{{Name: "in the midst"}}))
 
 	defer func() {
 		_ = exp.Shutdown(ctx)

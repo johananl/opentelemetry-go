@@ -25,8 +25,8 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/stdout"
 	"go.opentelemetry.io/otel/label"
-	export "go.opentelemetry.io/otel/sdk/export/trace"
 	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -46,7 +46,7 @@ func TestExporter_ExportSpan(t *testing.T) {
 	doubleValue := 123.456
 	resource := resource.NewWithAttributes(label.String("rk1", "rv11"))
 
-	testSpan := &export.SpanSnapshot{
+	testSpan := &sdktrace.SpanSnapshot{
 		SpanContext: trace.SpanContext{
 			TraceID: traceID,
 			SpanID:  spanID,
@@ -58,7 +58,7 @@ func TestExporter_ExportSpan(t *testing.T) {
 			label.String("key", keyValue),
 			label.Float64("double", doubleValue),
 		},
-		MessageEvents: []export.Event{
+		MessageEvents: []sdktrace.Event{
 			{Name: "foo", Attributes: []label.KeyValue{label.String("key", keyValue)}, Time: now},
 			{Name: "bar", Attributes: []label.KeyValue{label.Float64("double", doubleValue)}, Time: now},
 		},
@@ -67,7 +67,7 @@ func TestExporter_ExportSpan(t *testing.T) {
 		StatusMessage: "interesting",
 		Resource:      resource,
 	}
-	if err := ex.ExportSpans(context.Background(), []*export.SpanSnapshot{testSpan}); err != nil {
+	if err := ex.ExportSpans(context.Background(), []*sdktrace.SpanSnapshot{testSpan}); err != nil {
 		t.Fatal(err)
 	}
 

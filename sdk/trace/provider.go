@@ -22,7 +22,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 
-	export "go.opentelemetry.io/otel/sdk/export/trace"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
 	"go.opentelemetry.io/otel/sdk/resource"
 )
@@ -200,13 +199,13 @@ func (p *TracerProvider) Shutdown(ctx context.Context) error {
 
 // WithSyncer registers the exporter with the TracerProvider using a
 // SimpleSpanProcessor.
-func WithSyncer(e export.SpanExporter) TracerProviderOption {
+func WithSyncer(e SpanExporter) TracerProviderOption {
 	return WithSpanProcessor(NewSimpleSpanProcessor(e))
 }
 
 // WithBatcher registers the exporter with the TracerProvider using a
 // BatchSpanProcessor configured with the passed opts.
-func WithBatcher(e export.SpanExporter, opts ...BatchSpanProcessorOption) TracerProviderOption {
+func WithBatcher(e SpanExporter, opts ...BatchSpanProcessorOption) TracerProviderOption {
 	return WithSpanProcessor(NewBatchSpanProcessor(e, opts...))
 }
 

@@ -32,7 +32,6 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
-	export "go.opentelemetry.io/otel/sdk/export/trace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -238,7 +237,7 @@ func logStoreLogger(s *logStore) *log.Logger {
 }
 
 func TestExportSpans(t *testing.T) {
-	spans := []*export.SpanSnapshot{
+	spans := []*sdktrace.SpanSnapshot{
 		// parent
 		{
 			SpanContext: trace.SpanContext{

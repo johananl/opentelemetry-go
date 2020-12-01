@@ -33,7 +33,6 @@ import (
 	gen "go.opentelemetry.io/otel/exporters/trace/jaeger/internal/gen-go/jaeger"
 	ottest "go.opentelemetry.io/otel/internal/testing"
 	"go.opentelemetry.io/otel/label"
-	export "go.opentelemetry.io/otel/sdk/export/trace"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -376,12 +375,12 @@ func Test_spanSnapshotToThrift(t *testing.T) {
 
 	tests := []struct {
 		name string
-		data *export.SpanSnapshot
+		data *sdktrace.SpanSnapshot
 		want *gen.Span
 	}{
 		{
 			name: "no parent",
-			data: &export.SpanSnapshot{
+			data: &sdktrace.SpanSnapshot{
 				SpanContext: trace.SpanContext{
 					TraceID: traceID,
 					SpanID:  spanID,
@@ -403,7 +402,7 @@ func Test_spanSnapshotToThrift(t *testing.T) {
 					label.Uint64("uint", uint64(uintValue)),
 					label.Uint64("overflows", math.MaxUint64),
 				},
-				MessageEvents: []export.Event{
+				MessageEvents: []sdktrace.Event{
 					{Name: eventNameValue, Attributes: []label.KeyValue{label.String("k1", keyValue)}, Time: now},
 				},
 				StatusCode:    codes.Error,

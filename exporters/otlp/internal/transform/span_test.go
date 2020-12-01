@@ -29,9 +29,9 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"go.opentelemetry.io/otel/codes"
-	export "go.opentelemetry.io/otel/sdk/export/trace"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
 	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 func TestSpanKind(t *testing.T) {
@@ -73,13 +73,13 @@ func TestNilSpanEvent(t *testing.T) {
 }
 
 func TestEmptySpanEvent(t *testing.T) {
-	assert.Nil(t, spanEvents([]export.Event{}))
+	assert.Nil(t, spanEvents([]sdktrace.Event{}))
 }
 
 func TestSpanEvent(t *testing.T) {
 	attrs := []label.KeyValue{label.Int("one", 1), label.Int("two", 2)}
 	eventTime := time.Date(2020, 5, 20, 0, 0, 0, 0, time.UTC)
-	got := spanEvents([]export.Event{
+	got := spanEvents([]sdktrace.Event{
 		{
 			Name:       "test 1",
 			Attributes: []label.KeyValue{},
@@ -101,9 +101,9 @@ func TestSpanEvent(t *testing.T) {
 }
 
 func TestExcessiveSpanEvents(t *testing.T) {
-	e := make([]export.Event, maxMessageEventsPerSpan+1)
+	e := make([]sdktrace.Event, maxMessageEventsPerSpan+1)
 	for i := 0; i < maxMessageEventsPerSpan+1; i++ {
-		e[i] = export.Event{Name: strconv.Itoa(i)}
+		e[i] = sdktrace.Event{Name: strconv.Itoa(i)}
 	}
 	assert.Len(t, e, maxMessageEventsPerSpan+1)
 	got := spanEvents(e)
@@ -199,7 +199,7 @@ func TestSpanData(t *testing.T) {
 	// March 31, 2020 5:01:26 1234nanos (UTC)
 	startTime := time.Unix(1585674086, 1234)
 	endTime := startTime.Add(10 * time.Second)
-	spanData := &export.SpanSnapshot{
+	spanData := &sdktrace.SpanSnapshot{
 		SpanContext: trace.SpanContext{
 			TraceID: trace.TraceID{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F},
 			SpanID:  trace.SpanID{0xFF, 0xFE, 0xFD, 0xFC, 0xFB, 0xFA, 0xF9, 0xF8},
@@ -209,7 +209,7 @@ func TestSpanData(t *testing.T) {
 		Name:         "span data to span data",
 		StartTime:    startTime,
 		EndTime:      endTime,
-		MessageEvents: []export.Event{
+		MessageEvents: []sdktrace.Event{
 			{Time: startTime,
 				Attributes: []label.KeyValue{
 					label.Uint64("CompressedByteSize", 512),
@@ -279,7 +279,7 @@ func TestSpanData(t *testing.T) {
 		DroppedLinksCount:      3,
 	}
 
-	got := SpanData([]*export.SpanSnapshot{spanData})
+	got := SpanData([]*sdktrace.SpanSnapshot{spanData})
 	require.Len(t, got, 1)
 
 	assert.Equal(t, got[0].GetResource(), Resource(spanData.Resource))
@@ -296,7 +296,7 @@ func TestSpanData(t *testing.T) {
 
 // Empty parent span ID should be treated as root span.
 func TestRootSpanData(t *testing.T) {
-	sd := SpanData([]*export.SpanSnapshot{{}})
+	sd := SpanData([]*sdktrace.SpanSnapshot{{}})
 	require.Len(t, sd, 1)
 	rs := sd[0]
 	got := rs.GetInstrumentationLibrarySpans()[0].GetSpans()[0].GetParentSpanId()
@@ -306,5 +306,5 @@ func TestRootSpanData(t *testing.T) {
 }
 
 func TestSpanDataNilResource(t *testing.T) {
-	assert.NotPanics(t, func() { SpanData([]*export.SpanSnapshot{{}}) })
+	assert.NotPanics(t, func() { SpanData([]*sdktrace.SpanSnapshot{{}}) })
 }

@@ -19,8 +19,8 @@ import (
 	tracepb "go.opentelemetry.io/otel/exporters/otlp/internal/opentelemetry-proto-gen/trace/v1"
 
 	"go.opentelemetry.io/otel/label"
-	export "go.opentelemetry.io/otel/sdk/export/trace"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -30,7 +30,7 @@ const (
 
 // SpanData transforms a slice of SpanSnapshot into a slice of OTLP
 // ResourceSpans.
-func SpanData(sdl []*export.SpanSnapshot) []*tracepb.ResourceSpans {
+func SpanData(sdl []*sdktrace.SpanSnapshot) []*tracepb.ResourceSpans {
 	if len(sdl) == 0 {
 		return nil
 	}
@@ -96,7 +96,7 @@ func SpanData(sdl []*export.SpanSnapshot) []*tracepb.ResourceSpans {
 }
 
 // span transforms a Span into an OTLP span.
-func span(sd *export.SpanSnapshot) *tracepb.Span {
+func span(sd *sdktrace.SpanSnapshot) *tracepb.Span {
 	if sd == nil {
 		return nil
 	}
@@ -162,7 +162,7 @@ func links(links []trace.Link) []*tracepb.Span_Link {
 }
 
 // spanEvents transforms span Events to an OTLP span events.
-func spanEvents(es []export.Event) []*tracepb.Span_Event {
+func spanEvents(es []sdktrace.Event) []*tracepb.Span_Event {
 	if len(es) == 0 {
 		return nil
 	}

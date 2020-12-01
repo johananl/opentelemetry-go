@@ -26,7 +26,6 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	gen "go.opentelemetry.io/otel/exporters/trace/jaeger/internal/gen-go/jaeger"
 	"go.opentelemetry.io/otel/label"
-	export "go.opentelemetry.io/otel/sdk/export/trace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -208,10 +207,10 @@ type Exporter struct {
 	stopped   bool
 }
 
-var _ export.SpanExporter = (*Exporter)(nil)
+var _ sdktrace.SpanExporter = (*Exporter)(nil)
 
 // ExportSpans exports SpanSnapshots to Jaeger.
-func (e *Exporter) ExportSpans(ctx context.Context, ss []*export.SpanSnapshot) error {
+func (e *Exporter) ExportSpans(ctx context.Context, ss []*sdktrace.SpanSnapshot) error {
 	e.stoppedMu.RLock()
 	stopped := e.stopped
 	e.stoppedMu.RUnlock()
@@ -260,7 +259,7 @@ func (e *Exporter) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func spanSnapshotToThrift(ss *export.SpanSnapshot) *gen.Span {
+func spanSnapshotToThrift(ss *sdktrace.SpanSnapshot) *gen.Span {
 	tags := make([]*gen.Tag, 0, len(ss.Attributes))
 	for _, kv := range ss.Attributes {
 		tag := keyValueToTag(kv)

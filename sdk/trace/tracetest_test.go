@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tracetest
+package trace
 
 import (
 	"context"
@@ -20,8 +20,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"go.opentelemetry.io/otel/sdk/export/trace"
 )
 
 // TestNoop tests only that the no-op does not crash in different scenarios.
@@ -29,8 +27,8 @@ func TestNoop(t *testing.T) {
 	nsb := NewNoopExporter()
 
 	require.NoError(t, nsb.ExportSpans(context.Background(), nil))
-	require.NoError(t, nsb.ExportSpans(context.Background(), make([]*trace.SpanSnapshot, 10)))
-	require.NoError(t, nsb.ExportSpans(context.Background(), make([]*trace.SpanSnapshot, 0, 10)))
+	require.NoError(t, nsb.ExportSpans(context.Background(), make([]*SpanSnapshot, 10)))
+	require.NoError(t, nsb.ExportSpans(context.Background(), make([]*SpanSnapshot, 0, 10)))
 }
 
 func TestNewInMemoryExporter(t *testing.T) {
@@ -39,9 +37,9 @@ func TestNewInMemoryExporter(t *testing.T) {
 	require.NoError(t, imsb.ExportSpans(context.Background(), nil))
 	assert.Len(t, imsb.GetSpans(), 0)
 
-	input := make([]*trace.SpanSnapshot, 10)
+	input := make([]*SpanSnapshot, 10)
 	for i := 0; i < 10; i++ {
-		input[i] = new(trace.SpanSnapshot)
+		input[i] = new(SpanSnapshot)
 	}
 	require.NoError(t, imsb.ExportSpans(context.Background(), input))
 	sds := imsb.GetSpans()

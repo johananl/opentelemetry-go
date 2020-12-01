@@ -24,7 +24,6 @@ import (
 	"go.opentelemetry.io/otel/label"
 	"go.opentelemetry.io/otel/trace"
 
-	export "go.opentelemetry.io/otel/sdk/export/trace"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
 	"go.opentelemetry.io/otel/sdk/internal"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -50,14 +49,14 @@ type ReadOnlySpan interface {
 	EndTime() time.Time
 	Attributes() []label.KeyValue
 	Links() []trace.Link
-	Events() []export.Event
+	Events() []Event
 	StatusCode() codes.Code
 	StatusMessage() string
 	Tracer() trace.Tracer
 	IsRecording() bool
 	InstrumentationLibrary() instrumentation.Library
 	Resource() *resource.Resource
-	Snapshot() *export.SpanSnapshot
+	Snapshot() *SpanSnapshot
 }
 
 // ReadWriteSpan exposes the same methods as trace.Span and in addition allows
@@ -265,7 +264,7 @@ func (s *span) addEvent(name string, o ...trace.EventOption) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.messageEvents.add(export.Event{
+	s.messageEvents.add(Event{
 		Name:       name,
 		Attributes: c.Attributes,
 		Time:       c.Timestamp,
@@ -354,11 +353,11 @@ func (s *span) Links() []trace.Link {
 	return s.interfaceArrayToLinksArray()
 }
 
-func (s *span) Events() []export.Event {
+func (s *span) Events() []Event {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if len(s.messageEvents.queue) == 0 {
-		return []export.Event{}
+		return []Event{}
 	}
 	return s.interfaceArrayToMessageEventArray()
 }
@@ -396,10 +395,10 @@ func (s *span) addLink(link trace.Link) {
 	s.links.add(link)
 }
 
-// Snapshot creates a snapshot representing the current state of the span as an
-// export.SpanSnapshot and returns a pointer to it.
-func (s *span) Snapshot() *export.SpanSnapshot {
-	var sd export.SpanSnapshot
+// Snapshot creates a snapshot representing the current state of the span as a
+// SpanSnapshot and returns a pointer to it.
+func (s *span) Snapshot() *SpanSnapshot {
+	var sd SpanSnapshot
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -439,10 +438,10 @@ func (s *span) interfaceArrayToLinksArray() []trace.Link {
 	return linkArr
 }
 
-func (s *span) interfaceArrayToMessageEventArray() []export.Event {
-	messageEventArr := make([]export.Event, 0)
+func (s *span) interfaceArrayToMessageEventArray() []Event {
+	messageEventArr := make([]Event, 0)
 	for _, value := range s.messageEvents.queue {
-		messageEventArr = append(messageEventArr, value.(export.Event))
+		messageEventArr = append(messageEventArr, value.(Event))
 	}
 	return messageEventArr
 }
@@ -547,4 +546,51 @@ func makeSamplingDecision(data samplingData) SamplingResult {
 		spanContext.TraceFlags &^= trace.FlagsSampled
 	}
 	return sampled
+}
+
+// SpanSnapshot is a snapshot of a span which contains all the information
+// collected by the span. Its main purpose is exporting completed spans.
+// Although SpanSnapshot fields can be accessed and potentially modified,
+// SpanSnapshot should be treated as immutable. Changes to the span from which
+// the SpanSnapshot was created are NOT reflected in the SpanSnapshot.
+type SpanSnapshot struct {
+	SpanContext  trace.SpanContext
+	ParentSpanID trace.SpanID
+	SpanKind     trace.SpanKind
+	Name         string
+	StartTime    time.Time
+	// The wall clock time of EndTime will be adjusted to always be offset
+	// from StartTime by the duration of the span.
+	EndTime                  time.Time
+	Attributes               []label.KeyValue
+	MessageEvents            []Event
+	Links                    []trace.Link
+	StatusCode               codes.Code
+	StatusMessage            string
+	HasRemoteParent          bool
+	DroppedAttributeCount    int
+	DroppedMessageEventCount int
+	DroppedLinkCount         int
+
+	// ChildSpanCount holds the number of child span created for this span.
+	ChildSpanCount int
+
+	// Resource contains attributes representing an entity that produced this span.
+	Resource *resource.Resource
+
+	// InstrumentationLibrary defines the instrumentation library used to
+	// provide instrumentation.
+	InstrumentationLibrary instrumentation.Library
+}
+
+// Event is thing that happened during a Span's lifetime.
+type Event struct {
+	// Name is the name of this event
+	Name string
+
+	// Attributes describe the aspects of the event.
+	Attributes []label.KeyValue
+
+	// Time is the time at which this event was recorded.
+	Time time.Time
 }

@@ -17,7 +17,6 @@ package stdout // import "go.opentelemetry.io/otel/exporters/stdout"
 import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/sdk/export/metric"
-	exporttrace "go.opentelemetry.io/otel/sdk/export/trace"
 	"go.opentelemetry.io/otel/sdk/metric/controller/push"
 	"go.opentelemetry.io/otel/sdk/metric/processor/basic"
 	"go.opentelemetry.io/otel/sdk/metric/selector/simple"
@@ -31,8 +30,8 @@ type Exporter struct {
 }
 
 var (
-	_ metric.Exporter          = &Exporter{}
-	_ exporttrace.SpanExporter = &Exporter{}
+	_ metric.Exporter       = &Exporter{}
+	_ sdktrace.SpanExporter = &Exporter{}
 )
 
 // NewExporter creates an Exporter with the passed options.

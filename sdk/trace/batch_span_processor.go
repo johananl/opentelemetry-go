@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel"
-	export "go.opentelemetry.io/otel/sdk/export/trace"
 )
 
 const (
@@ -60,13 +59,13 @@ type BatchSpanProcessorOptions struct {
 // BatchSpanProcessor is a SpanProcessor that batches asynchronously-received
 // SpanSnapshots and sends them to a trace.Exporter when complete.
 type BatchSpanProcessor struct {
-	e export.SpanExporter
+	e SpanExporter
 	o BatchSpanProcessorOptions
 
-	queue   chan *export.SpanSnapshot
+	queue   chan *SpanSnapshot
 	dropped uint32
 
-	batch      []*export.SpanSnapshot
+	batch      []*SpanSnapshot
 	batchMutex sync.Mutex
 	timer      *time.Timer
 	stopWait   sync.WaitGroup
@@ -83,7 +82,7 @@ var _ SpanProcessor = (*BatchSpanProcessor)(nil)
 // the RegisterSpanProcessor method for it to process spans.
 //
 // If the exporter is nil, the span processor will preform no action.
-func NewBatchSpanProcessor(exporter export.SpanExporter, options ...BatchSpanProcessorOption) *BatchSpanProcessor {
+func NewBatchSpanProcessor(exporter SpanExporter, options ...BatchSpanProcessorOption) *BatchSpanProcessor {
 	o := BatchSpanProcessorOptions{
 		BatchTimeout:       DefaultBatchTimeout,
 		MaxQueueSize:       DefaultMaxQueueSize,
@@ -95,9 +94,9 @@ func NewBatchSpanProcessor(exporter export.SpanExporter, options ...BatchSpanPro
 	bsp := &BatchSpanProcessor{
 		e:      exporter,
 		o:      o,
-		batch:  make([]*export.SpanSnapshot, 0, o.MaxExportBatchSize),
+		batch:  make([]*SpanSnapshot, 0, o.MaxExportBatchSize),
 		timer:  time.NewTimer(o.BatchTimeout),
-		queue:  make(chan *export.SpanSnapshot, o.MaxQueueSize),
+		queue:  make(chan *SpanSnapshot, o.MaxQueueSize),
 		stopCh: make(chan struct{}),
 	}
 
@@ -240,7 +239,7 @@ func (bsp *BatchSpanProcessor) drainQueue() {
 	}
 }
 
-func (bsp *BatchSpanProcessor) enqueue(sd *export.SpanSnapshot) {
+func (bsp *BatchSpanProcessor) enqueue(sd *SpanSnapshot) {
 	if !sd.SpanContext.IsSampled() {
 		return
 	}
