@@ -28,10 +28,10 @@ const (
 	maxMessageEventsPerSpan = 128
 )
 
-// SpanData transforms a slice of SpanSnapshot into a slice of OTLP
+// SpanData transforms a slice of ReadOnlySpans into a slice of OTLP
 // ResourceSpans.
-func SpanData(sdl []*sdktrace.SpanSnapshot) []*tracepb.ResourceSpans {
-	if len(sdl) == 0 {
+func SpanData(spans []sdktrace.ReadOnlySpan) []*tracepb.ResourceSpans {
+	if len(spans) == 0 {
 		return nil
 	}
 
@@ -44,25 +44,25 @@ func SpanData(sdl []*sdktrace.SpanSnapshot) []*tracepb.ResourceSpans {
 	ilsm := make(map[ilsKey]*tracepb.InstrumentationLibrarySpans)
 
 	var resources int
-	for _, sd := range sdl {
-		if sd == nil {
+	for _, s := range spans {
+		if s == nil {
 			continue
 		}
 
-		rKey := sd.Resource.Equivalent()
+		rKey := s.Resource().Equivalent()
 		iKey := ilsKey{
 			r:  rKey,
-			il: sd.InstrumentationLibrary,
+			il: s.InstrumentationLibrary(),
 		}
 		ils, iOk := ilsm[iKey]
 		if !iOk {
 			// Either the resource or instrumentation library were unknown.
 			ils = &tracepb.InstrumentationLibrarySpans{
-				InstrumentationLibrary: instrumentationLibrary(sd.InstrumentationLibrary),
+				InstrumentationLibrary: instrumentationLibrary(s.InstrumentationLibrary()),
 				Spans:                  []*tracepb.Span{},
 			}
 		}
-		ils.Spans = append(ils.Spans, span(sd))
+		ils.Spans = append(ils.Spans, span(s))
 		ilsm[iKey] = ils
 
 		rs, rOk := rsm[rKey]
@@ -70,7 +70,7 @@ func SpanData(sdl []*sdktrace.SpanSnapshot) []*tracepb.ResourceSpans {
 			resources++
 			// The resource was unknown.
 			rs = &tracepb.ResourceSpans{
-				Resource:                    Resource(sd.Resource),
+				Resource:                    Resource(s.Resource()),
 				InstrumentationLibrarySpans: []*tracepb.InstrumentationLibrarySpans{ils},
 			}
 			rsm[rKey] = rs
@@ -95,34 +95,37 @@ func SpanData(sdl []*sdktrace.SpanSnapshot) []*tracepb.ResourceSpans {
 	return rss
 }
 
-// span transforms a Span into an OTLP span.
-func span(sd *sdktrace.SpanSnapshot) *tracepb.Span {
-	if sd == nil {
+// span transforms a ReadOnlySpan into an OTLP span.
+func span(s sdktrace.ReadOnlySpan) *tracepb.Span {
+	if s == nil {
 		return nil
 	}
 
-	s := &tracepb.Span{
-		TraceId:           sd.SpanContext.TraceID[:],
-		SpanId:            sd.SpanContext.SpanID[:],
-		Status:            status(sd.StatusCode, sd.StatusMessage),
-		StartTimeUnixNano: uint64(sd.StartTime.UnixNano()),
-		EndTimeUnixNano:   uint64(sd.EndTime.UnixNano()),
-		Links:             links(sd.Links),
-		Kind:              spanKind(sd.SpanKind),
-		Name:              sd.Name,
-		Attributes:        Attributes(sd.Attributes),
-		Events:            spanEvents(sd.MessageEvents),
+	sc := s.SpanContext()
+
+	ts := &tracepb.Span{
+		TraceId:           sc.TraceID[:],
+		SpanId:            sc.SpanID[:],
+		Status:            status(s.StatusCode(), s.StatusMessage()),
+		StartTimeUnixNano: uint64(s.StartTime().UnixNano()),
+		EndTimeUnixNano:   uint64(s.EndTime().UnixNano()),
+		Links:             links(s.Links()),
+		Kind:              spanKind(s.SpanKind()),
+		Name:              s.Name(),
+		Attributes:        Attributes(s.Attributes()),
+		Events:            spanEvents(s.Events()),
 		// TODO (rghetia): Add Tracestate: when supported.
-		DroppedAttributesCount: uint32(sd.DroppedAttributeCount),
-		DroppedEventsCount:     uint32(sd.DroppedMessageEventCount),
-		DroppedLinksCount:      uint32(sd.DroppedLinkCount),
+		DroppedAttributesCount: uint32(s.DroppedAttributes()),
+		DroppedEventsCount:     uint32(s.DroppedEvents()),
+		DroppedLinksCount:      uint32(s.DroppedLinks()),
 	}
 
-	if sd.ParentSpanID.IsValid() {
-		s.ParentSpanId = sd.ParentSpanID[:]
+	if s.Parent().SpanID.IsValid() {
+		psid := s.Parent().SpanID
+		ts.ParentSpanId = psid[:]
 	}
 
-	return s
+	return ts
 }
 
 // status transform a span code and message into an OTLP span status.

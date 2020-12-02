@@ -27,8 +27,8 @@ func TestNoop(t *testing.T) {
 	nsb := NewNoopExporter()
 
 	require.NoError(t, nsb.ExportSpans(context.Background(), nil))
-	require.NoError(t, nsb.ExportSpans(context.Background(), make([]*SpanSnapshot, 10)))
-	require.NoError(t, nsb.ExportSpans(context.Background(), make([]*SpanSnapshot, 0, 10)))
+	require.NoError(t, nsb.ExportSpans(context.Background(), make([]ReadOnlySpan, 10)))
+	require.NoError(t, nsb.ExportSpans(context.Background(), make([]ReadOnlySpan, 0, 10)))
 }
 
 func TestNewInMemoryExporter(t *testing.T) {
@@ -37,9 +37,9 @@ func TestNewInMemoryExporter(t *testing.T) {
 	require.NoError(t, imsb.ExportSpans(context.Background(), nil))
 	assert.Len(t, imsb.GetSpans(), 0)
 
-	input := make([]*SpanSnapshot, 10)
+	input := make([]ReadOnlySpan, 10)
 	for i := 0; i < 10; i++ {
-		input[i] = new(SpanSnapshot)
+		input[i] = new(span).snapshot()
 	}
 	require.NoError(t, imsb.ExportSpans(context.Background(), input))
 	sds := imsb.GetSpans()

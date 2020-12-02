@@ -197,12 +197,12 @@ func (e *Exporter) ExportKindFor(desc *metric.Descriptor, kind aggregation.Kind)
 	return e.exportKindSelector.ExportKindFor(desc, kind)
 }
 
-// ExportSpans exports a batch of SpanSnapshot.
-func (e *Exporter) ExportSpans(ctx context.Context, ss []*tracesdk.SpanSnapshot) error {
-	return e.uploadTraces(ctx, ss)
+// ExportSpans exports a batch of ReadOnlySpans.
+func (e *Exporter) ExportSpans(ctx context.Context, spans []tracesdk.ReadOnlySpan) error {
+	return e.uploadTraces(ctx, spans)
 }
 
-func (e *Exporter) uploadTraces(ctx context.Context, ss []*tracesdk.SpanSnapshot) error {
+func (e *Exporter) uploadTraces(ctx context.Context, spans []tracesdk.ReadOnlySpan) error {
 	ctx, cancel := e.cc.contextWithStop(ctx)
 	defer cancel()
 
@@ -210,7 +210,7 @@ func (e *Exporter) uploadTraces(ctx context.Context, ss []*tracesdk.SpanSnapshot
 		return nil
 	}
 
-	protoSpans := transform.SpanData(ss)
+	protoSpans := transform.SpanData(spans)
 	if len(protoSpans) == 0 {
 		return nil
 	}

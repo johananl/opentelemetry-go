@@ -44,8 +44,7 @@ func (ssp *SimpleSpanProcessor) OnStart(parent context.Context, s ReadWriteSpan)
 // OnEnd method exports a ReadOnlySpan using the associated exporter.
 func (ssp *SimpleSpanProcessor) OnEnd(s ReadOnlySpan) {
 	if ssp.e != nil && s.SpanContext().IsSampled() {
-		ss := s.Snapshot()
-		if err := ssp.e.ExportSpans(context.Background(), []*SpanSnapshot{ss}); err != nil {
+		if err := ssp.e.ExportSpans(context.Background(), []ReadOnlySpan{s}); err != nil {
 			otel.Handle(err)
 		}
 	}

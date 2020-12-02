@@ -50,9 +50,9 @@ type mockTraceService struct {
 	headers metadata.MD
 }
 
-func (mts *mockTraceService) getHeaders() metadata.MD {
-	return mts.headers
-}
+// func (mts *mockTraceService) getHeaders() metadata.MD {
+// 	return mts.headers
+// }
 
 func (mts *mockTraceService) getSpans() []*tracepb.Span {
 	mts.mu.RLock()
@@ -199,9 +199,9 @@ func (mc *mockCol) getResourceSpans() []*tracepb.ResourceSpans {
 	return mc.traceSvc.getResourceSpans()
 }
 
-func (mc *mockCol) getHeaders() metadata.MD {
-	return mc.traceSvc.getHeaders()
-}
+// func (mc *mockCol) getHeaders() metadata.MD {
+// 	return mc.traceSvc.getHeaders()
+// }
 
 func (mc *mockCol) getMetrics() []*metricpb.Metric {
 	return mc.metricSvc.getMetrics()

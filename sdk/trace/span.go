@@ -56,7 +56,10 @@ type ReadOnlySpan interface {
 	IsRecording() bool
 	InstrumentationLibrary() instrumentation.Library
 	Resource() *resource.Resource
-	Snapshot() *SpanSnapshot
+	DroppedAttributes() int
+	DroppedLinks() int
+	DroppedEvents() int
+	ChildSpanCount() int
 }
 
 // ReadWriteSpan exposes the same methods as trace.Span and in addition allows
@@ -221,7 +224,7 @@ func (s *span) End(options ...trace.SpanOption) {
 	mustExportOrProcess := ok && len(sps) > 0
 	if mustExportOrProcess {
 		for _, sp := range sps {
-			sp.sp.OnEnd(s)
+			sp.sp.OnEnd(s.snapshot())
 		}
 	}
 }
@@ -386,6 +389,26 @@ func (s *span) Resource() *resource.Resource {
 	return s.resource
 }
 
+func (s *span) DroppedAttributes() int {
+	// Not implemented.
+	return -1
+}
+
+func (s *span) DroppedLinks() int {
+	// Not implemented.
+	return -1
+}
+
+func (s *span) DroppedEvents() int {
+	// Not implemented.
+	return -1
+}
+
+func (s *span) ChildSpanCount() int {
+	// Not implemented.
+	return -1
+}
+
 func (s *span) addLink(link trace.Link) {
 	if !s.IsRecording() {
 		return
@@ -395,37 +418,37 @@ func (s *span) addLink(link trace.Link) {
 	s.links.add(link)
 }
 
-// Snapshot creates a snapshot representing the current state of the span as a
-// SpanSnapshot and returns a pointer to it.
-func (s *span) Snapshot() *SpanSnapshot {
-	var sd SpanSnapshot
+// snapshot creates a snapshot representing the current state of the span as a
+// spanSnapshot and returns a pointer to it.
+func (s *span) snapshot() *spanSnapshot {
+	var sd spanSnapshot
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	sd.ChildSpanCount = s.childSpanCount
-	sd.EndTime = s.endTime
-	sd.HasRemoteParent = s.hasRemoteParent
-	sd.InstrumentationLibrary = s.instrumentationLibrary
-	sd.Name = s.name
-	sd.ParentSpanID = s.parent.SpanID
-	sd.Resource = s.resource
-	sd.SpanContext = s.spanContext
-	sd.SpanKind = s.spanKind
-	sd.StartTime = s.startTime
-	sd.StatusCode = s.statusCode
-	sd.StatusMessage = s.statusMessage
+	sd.childSpanCount = s.childSpanCount
+	sd.endTime = s.endTime
+	sd.hasRemoteParent = s.hasRemoteParent
+	sd.instrumentationLibrary = s.instrumentationLibrary
+	sd.name = s.name
+	sd.parent = s.parent
+	sd.resource = s.resource
+	sd.spanContext = s.spanContext
+	sd.spanKind = s.spanKind
+	sd.startTime = s.startTime
+	sd.statusCode = s.statusCode
+	sd.statusMessage = s.statusMessage
 
 	if s.attributes.evictList.Len() > 0 {
-		sd.Attributes = s.attributes.toKeyValue()
-		sd.DroppedAttributeCount = s.attributes.droppedCount
+		sd.attributes = s.attributes.toKeyValue()
+		sd.droppedAttributeCount = s.attributes.droppedCount
 	}
 	if len(s.messageEvents.queue) > 0 {
-		sd.MessageEvents = s.interfaceArrayToMessageEventArray()
-		sd.DroppedMessageEventCount = s.messageEvents.droppedCount
+		sd.messageEvents = s.interfaceArrayToMessageEventArray()
+		sd.droppedMessageEventCount = s.messageEvents.droppedCount
 	}
 	if len(s.links.queue) > 0 {
-		sd.Links = s.interfaceArrayToLinksArray()
-		sd.DroppedLinkCount = s.links.droppedCount
+		sd.links = s.interfaceArrayToLinksArray()
+		sd.droppedLinkCount = s.links.droppedCount
 	}
 	return &sd
 }
@@ -548,39 +571,119 @@ func makeSamplingDecision(data samplingData) SamplingResult {
 	return sampled
 }
 
-// SpanSnapshot is a snapshot of a span which contains all the information
-// collected by the span. Its main purpose is exporting completed spans.
-// Although SpanSnapshot fields can be accessed and potentially modified,
-// SpanSnapshot should be treated as immutable. Changes to the span from which
-// the SpanSnapshot was created are NOT reflected in the SpanSnapshot.
-type SpanSnapshot struct {
-	SpanContext  trace.SpanContext
-	ParentSpanID trace.SpanID
-	SpanKind     trace.SpanKind
-	Name         string
-	StartTime    time.Time
+// spanSnapshot is an immutable snapshot of a span which contains all the
+// information collected by the span. Its main purpose is exporting completed
+// spans. Changes to the span from which the spanSnapshot was created are NOT
+// reflected in the SpanSnapshot.
+// spanSnapshot implements the ReadOnlySpan interface. The implementation isn't
+// thread safe and assumes there is no concurrent access to the various fields.
+type spanSnapshot struct {
+	spanContext trace.SpanContext
+	parent      trace.SpanContext
+	spanKind    trace.SpanKind
+	name        string
+	startTime   time.Time
 	// The wall clock time of EndTime will be adjusted to always be offset
 	// from StartTime by the duration of the span.
-	EndTime                  time.Time
-	Attributes               []label.KeyValue
-	MessageEvents            []Event
-	Links                    []trace.Link
-	StatusCode               codes.Code
-	StatusMessage            string
-	HasRemoteParent          bool
-	DroppedAttributeCount    int
-	DroppedMessageEventCount int
-	DroppedLinkCount         int
+	endTime                  time.Time
+	attributes               []label.KeyValue
+	messageEvents            []Event
+	links                    []trace.Link
+	statusCode               codes.Code
+	statusMessage            string
+	hasRemoteParent          bool
+	droppedAttributeCount    int
+	droppedMessageEventCount int
+	droppedLinkCount         int
 
 	// ChildSpanCount holds the number of child span created for this span.
-	ChildSpanCount int
+	childSpanCount int
 
 	// Resource contains attributes representing an entity that produced this span.
-	Resource *resource.Resource
+	resource *resource.Resource
 
 	// InstrumentationLibrary defines the instrumentation library used to
 	// provide instrumentation.
-	InstrumentationLibrary instrumentation.Library
+	instrumentationLibrary instrumentation.Library
+
+	// TODO: Is it safe to keep a reference here?
+	tracer *tracer
+}
+
+func (s *spanSnapshot) Name() string {
+	return s.name
+}
+
+func (s *spanSnapshot) SpanContext() trace.SpanContext {
+	return s.spanContext
+}
+
+func (s *spanSnapshot) Parent() trace.SpanContext {
+	return s.parent
+}
+
+func (s *spanSnapshot) SpanKind() trace.SpanKind {
+	return s.spanKind
+}
+
+func (s *spanSnapshot) StartTime() time.Time {
+	return s.startTime
+}
+
+func (s *spanSnapshot) EndTime() time.Time {
+	return s.endTime
+}
+
+func (s *spanSnapshot) Attributes() []label.KeyValue {
+	return s.attributes
+}
+
+func (s *spanSnapshot) Links() []trace.Link {
+	return s.links
+}
+
+func (s *spanSnapshot) Events() []Event {
+	return s.messageEvents
+}
+
+func (s *spanSnapshot) StatusCode() codes.Code {
+	return s.statusCode
+}
+
+func (s *spanSnapshot) StatusMessage() string {
+	return s.statusMessage
+}
+
+func (s *spanSnapshot) Tracer() trace.Tracer {
+	return s.tracer
+}
+
+func (s *spanSnapshot) IsRecording() bool {
+	return false
+}
+
+func (s *spanSnapshot) InstrumentationLibrary() instrumentation.Library {
+	return s.instrumentationLibrary
+}
+
+func (s *spanSnapshot) Resource() *resource.Resource {
+	return s.resource
+}
+
+func (s *spanSnapshot) DroppedAttributes() int {
+	return s.droppedAttributeCount
+}
+
+func (s *spanSnapshot) DroppedLinks() int {
+	return s.droppedLinkCount
+}
+
+func (s *spanSnapshot) DroppedEvents() int {
+	return s.droppedMessageEventCount
+}
+
+func (s *spanSnapshot) ChildSpanCount() int {
+	return s.childSpanCount
 }
 
 // Event is thing that happened during a Span's lifetime.

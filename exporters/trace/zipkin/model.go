@@ -31,36 +31,36 @@ const (
 	keyInstrumentationLibraryVersion = "otel.instrumentation_library.version"
 )
 
-func toZipkinSpanModels(batch []*sdktrace.SpanSnapshot, serviceName string) []zkmodel.SpanModel {
+func toZipkinSpanModels(batch []sdktrace.ReadOnlySpan, serviceName string) []zkmodel.SpanModel {
 	models := make([]zkmodel.SpanModel, 0, len(batch))
-	for _, data := range batch {
-		models = append(models, toZipkinSpanModel(data, serviceName))
+	for _, span := range batch {
+		models = append(models, toZipkinSpanModel(span, serviceName))
 	}
 	return models
 }
 
-func toZipkinSpanModel(data *sdktrace.SpanSnapshot, serviceName string) zkmodel.SpanModel {
+func toZipkinSpanModel(span sdktrace.ReadOnlySpan, serviceName string) zkmodel.SpanModel {
 	return zkmodel.SpanModel{
-		SpanContext: toZipkinSpanContext(data),
-		Name:        data.Name,
-		Kind:        toZipkinKind(data.SpanKind),
-		Timestamp:   data.StartTime,
-		Duration:    data.EndTime.Sub(data.StartTime),
+		SpanContext: toZipkinSpanContext(span),
+		Name:        span.Name(),
+		Kind:        toZipkinKind(span.SpanKind()),
+		Timestamp:   span.StartTime(),
+		Duration:    span.EndTime().Sub(span.StartTime()),
 		Shared:      false,
 		LocalEndpoint: &zkmodel.Endpoint{
 			ServiceName: serviceName,
 		},
 		RemoteEndpoint: nil, // *Endpoint
-		Annotations:    toZipkinAnnotations(data.MessageEvents),
-		Tags:           toZipkinTags(data),
+		Annotations:    toZipkinAnnotations(span.Events()),
+		Tags:           toZipkinTags(span),
 	}
 }
 
-func toZipkinSpanContext(data *sdktrace.SpanSnapshot) zkmodel.SpanContext {
+func toZipkinSpanContext(span sdktrace.ReadOnlySpan) zkmodel.SpanContext {
 	return zkmodel.SpanContext{
-		TraceID:  toZipkinTraceID(data.SpanContext.TraceID),
-		ID:       toZipkinID(data.SpanContext.SpanID),
-		ParentID: toZipkinParentID(data.ParentSpanID),
+		TraceID:  toZipkinTraceID(span.SpanContext().TraceID),
+		ID:       toZipkinID(span.SpanContext().SpanID),
+		ParentID: toZipkinParentID(span.Parent().SpanID),
 		Debug:    false,
 		Sampled:  nil,
 		Err:      nil,
@@ -145,18 +145,18 @@ var extraZipkinTags = []string{
 	keyInstrumentationLibraryVersion,
 }
 
-func toZipkinTags(data *sdktrace.SpanSnapshot) map[string]string {
-	m := make(map[string]string, len(data.Attributes)+len(extraZipkinTags))
-	for _, kv := range data.Attributes {
+func toZipkinTags(span sdktrace.ReadOnlySpan) map[string]string {
+	m := make(map[string]string, len(span.Attributes())+len(extraZipkinTags))
+	for _, kv := range span.Attributes() {
 		m[(string)(kv.Key)] = kv.Value.Emit()
 	}
 	if v, ok := m["error"]; ok && v == "false" {
 		delete(m, "error")
 	}
-	m["otel.status_code"] = data.StatusCode.String()
-	m["otel.status_description"] = data.StatusMessage
+	m["otel.status_code"] = span.StatusCode().String()
+	m["otel.status_description"] = span.StatusMessage()
 
-	if il := data.InstrumentationLibrary; il.Name != "" {
+	if il := span.InstrumentationLibrary(); il.Name != "" {
 		m[keyInstrumentationLibraryName] = il.Name
 		if il.Version != "" {
 			m[keyInstrumentationLibraryVersion] = il.Version

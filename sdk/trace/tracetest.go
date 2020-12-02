@@ -34,7 +34,7 @@ func NewNoopExporter() *NoopExporter {
 type NoopExporter struct{}
 
 // ExportSpans handles export of SpanSnapshots by dropping them.
-func (nsb *NoopExporter) ExportSpans(context.Context, []*SpanSnapshot) error { return nil }
+func (nsb *NoopExporter) ExportSpans(context.Context, []ReadOnlySpan) error { return nil }
 
 // Shutdown stops the exporter by doing nothing.
 func (nsb *NoopExporter) Shutdown(context.Context) error { return nil }
@@ -48,15 +48,15 @@ func NewInMemoryExporter() *InMemoryExporter {
 
 // InMemoryExporter is an exporter that stores all received spans in-memory.
 type InMemoryExporter struct {
-	mu sync.Mutex
-	ss []*SpanSnapshot
+	mu    sync.Mutex
+	spans []ReadOnlySpan
 }
 
 // ExportSpans handles export of SpanSnapshots by storing them in memory.
-func (imsb *InMemoryExporter) ExportSpans(_ context.Context, ss []*SpanSnapshot) error {
+func (imsb *InMemoryExporter) ExportSpans(_ context.Context, spans []ReadOnlySpan) error {
 	imsb.mu.Lock()
 	defer imsb.mu.Unlock()
-	imsb.ss = append(imsb.ss, ss...)
+	imsb.spans = append(imsb.spans, spans...)
 	return nil
 }
 
@@ -70,14 +70,14 @@ func (imsb *InMemoryExporter) Shutdown(context.Context) error {
 func (imsb *InMemoryExporter) Reset() {
 	imsb.mu.Lock()
 	defer imsb.mu.Unlock()
-	imsb.ss = nil
+	imsb.spans = nil
 }
 
 // GetSpans returns the current in-memory stored spans.
-func (imsb *InMemoryExporter) GetSpans() []*SpanSnapshot {
+func (imsb *InMemoryExporter) GetSpans() []ReadOnlySpan {
 	imsb.mu.Lock()
 	defer imsb.mu.Unlock()
-	ret := make([]*SpanSnapshot, len(imsb.ss))
-	copy(ret, imsb.ss)
+	ret := make([]ReadOnlySpan, len(imsb.spans))
+	copy(ret, imsb.spans)
 	return ret
 }

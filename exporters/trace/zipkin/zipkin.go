@@ -136,8 +136,8 @@ func InstallNewPipeline(collectorURL, serviceName string, opts ...Option) error 
 	return nil
 }
 
-// ExportSpans exports SpanSnapshots to a Zipkin receiver.
-func (e *Exporter) ExportSpans(ctx context.Context, ss []*sdktrace.SpanSnapshot) error {
+// ExportSpans exports ReadOnlySpans to a Zipkin receiver.
+func (e *Exporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
 	e.stoppedMu.RLock()
 	stopped := e.stopped
 	e.stoppedMu.RUnlock()
@@ -146,11 +146,11 @@ func (e *Exporter) ExportSpans(ctx context.Context, ss []*sdktrace.SpanSnapshot)
 		return nil
 	}
 
-	if len(ss) == 0 {
+	if len(spans) == 0 {
 		e.logf("no spans to export")
 		return nil
 	}
-	models := toZipkinSpanModels(ss, e.serviceName)
+	models := toZipkinSpanModels(spans, e.serviceName)
 	body, err := json.Marshal(models)
 	if err != nil {
 		return e.errf("failed to serialize zipkin models to JSON: %v", err)
